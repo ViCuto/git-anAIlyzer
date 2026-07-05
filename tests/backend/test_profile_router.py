@@ -5,7 +5,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from backend.clients import GitHubNotFoundError, GitHubProfileRequest, GitHubProfileResponse
+from backend.clients import GitHubNotFoundError, GitHubProfileRequest, GitHubProfileResponse, GitHubRateLimitError
 from backend.routers.profile import router
 
 
@@ -74,6 +74,24 @@ def test_get_profile_translates_missing_user_to_404(
     assert response.status_code == 404
     assert response.json() == {"detail": "GitHub user 'missing' not found"}
     mock_fetch_user_profile.assert_called_once_with(GitHubProfileRequest(username="missing"))
+
+
+def test_get_profile_translates_rate_limit_to_429(
+    client: TestClient,
+    mocker: pytest.MockFixture,
+) -> None:
+    # Arrange
+    mocker.patch(
+        "backend.routers.profile.fetch_user_profile",
+        side_effect=GitHubRateLimitError("GitHub API rate limit exceeded"),
+    )
+
+    # Act
+    response = client.get("/api/profile/octocat")
+
+    # Assert
+    assert response.status_code == 429
+    assert response.json() == {"detail": "GitHub API rate limit exceeded"}
 
 
 def test_get_profile_translates_upstream_errors_to_502(

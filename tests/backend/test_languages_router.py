@@ -4,7 +4,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from backend.clients import GitHubNotFoundError
+from backend.clients import GitHubNotFoundError, GitHubRateLimitError
 from backend.routers.languages import router
 
 
@@ -51,6 +51,24 @@ def test_get_languages_translates_missing_user_to_404(
     assert response.status_code == 404
     assert response.json() == {"detail": "GitHub user 'missing' not found"}
     mock_fetch_user_language_stats.assert_called_once_with("missing")
+
+
+def test_get_languages_translates_rate_limit_to_429(
+    client: TestClient,
+    mocker: pytest.MockFixture,
+) -> None:
+    # Arrange
+    mocker.patch(
+        "backend.routers.languages.fetch_user_language_stats",
+        side_effect=GitHubRateLimitError("GitHub API rate limit exceeded"),
+    )
+
+    # Act
+    response = client.get("/api/languages/octocat")
+
+    # Assert
+    assert response.status_code == 429
+    assert response.json() == {"detail": "GitHub API rate limit exceeded"}
 
 
 def test_get_languages_translates_value_error_to_400(

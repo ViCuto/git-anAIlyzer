@@ -3,6 +3,8 @@ import pytest
 from backend.clients.github import (
     GitHubNotFoundError,
     GitHubProfileRequest,
+    GitHubRateLimitError,
+    fetch_user_repos_analytics,
     fetch_user_language_stats,
     fetch_user_profile,
 )
@@ -19,6 +21,60 @@ def github_profile_payload() -> dict[str, object]:
         "public_repos": 8,
         "html_url": "https://github.com/octocat",
     }
+
+
+@pytest.fixture()
+def github_repos_payload() -> list[dict[str, object]]:
+    return [
+        {
+            "name": "repo-a",
+            "description": "first repo",
+            "html_url": "https://github.com/octocat/repo-a",
+            "stargazers_count": 10,
+            "forks_count": 2,
+            "language": "Python",
+        },
+        {
+            "name": "repo-b",
+            "description": "second repo",
+            "html_url": "https://github.com/octocat/repo-b",
+            "stargazers_count": 3,
+            "forks_count": 1,
+            "language": "JavaScript",
+        },
+        {
+            "name": "repo-c",
+            "description": None,
+            "html_url": "https://github.com/octocat/repo-c",
+            "stargazers_count": 25,
+            "forks_count": 5,
+            "language": "Python",
+        },
+        {
+            "name": "repo-d",
+            "description": "fourth repo",
+            "html_url": "https://github.com/octocat/repo-d",
+            "stargazers_count": 0,
+            "forks_count": 0,
+            "language": None,
+        },
+        {
+            "name": "repo-e",
+            "description": "fifth repo",
+            "html_url": "https://github.com/octocat/repo-e",
+            "stargazers_count": 8,
+            "forks_count": 7,
+            "language": "Go",
+        },
+        {
+            "name": "repo-f",
+            "description": "sixth repo",
+            "html_url": "https://github.com/octocat/repo-f",
+            "stargazers_count": 12,
+            "forks_count": 4,
+            "language": "Python",
+        },
+    ]
 
 
 @pytest.mark.asyncio
@@ -74,6 +130,21 @@ async def test_fetch_user_profile_rejects_blank_username() -> None:
 
 
 @pytest.mark.asyncio
+async def test_fetch_user_profile_translates_403_to_rate_limit_error(mocker: pytest.MockFixture) -> None:
+    # Arrange
+    mock_response = mocker.Mock()
+    mock_response.status_code = 403
+    mock_response.json.return_value = {}
+    mock_response.raise_for_status.return_value = None
+    mocker.patch("backend.clients.github.httpx.AsyncClient.get", return_value=mock_response)
+    request = GitHubProfileRequest(username="octocat")
+
+    # Act / Assert
+    with pytest.raises(GitHubRateLimitError, match="GitHub API rate limit exceeded"):
+        await fetch_user_profile(request)
+
+
+@pytest.mark.asyncio
 async def test_fetch_user_language_stats_returns_language_counts(mocker: pytest.MockFixture) -> None:
     # Arrange
     mock_response = mocker.Mock()
@@ -108,3 +179,55 @@ async def test_fetch_user_language_stats_translates_404_to_domain_error(mocker: 
     # Act / Assert
     with pytest.raises(GitHubNotFoundError, match="GitHub user 'missing' not found"):
         await fetch_user_language_stats("missing")
+
+
+@pytest.mark.asyncio
+async def test_fetch_user_repos_analytics_returns_aggregated_metrics(
+    mocker: pytest.MockFixture,
+    github_repos_payload: list[dict[str, object]],
+) -> None:
+    # Arrange
+    mock_response = mocker.Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = github_repos_payload
+    mock_response.raise_for_status.return_value = None
+    mock_get = mocker.patch("backend.clients.github.httpx.AsyncClient.get", return_value=mock_response)
+
+    # Act
+    analytics = await fetch_user_repos_analytics(" octocat ")
+
+    # Assert
+    assert analytics.total_stars == 58
+    assert analytics.total_forks == 19
+    assert analytics.languages == {"Python": 3, "JavaScript": 1, "Go": 1}
+    assert [repo.name for repo in analytics.top_repos] == ["repo-c", "repo-f", "repo-a", "repo-e", "repo-b"]
+    assert analytics.top_repos[0].stargazers_count == 25
+    mock_get.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_fetch_user_repos_analytics_translates_404_to_domain_error(mocker: pytest.MockFixture) -> None:
+    # Arrange
+    mock_response = mocker.Mock()
+    mock_response.status_code = 404
+    mock_response.json.return_value = []
+    mock_response.raise_for_status.return_value = None
+    mocker.patch("backend.clients.github.httpx.AsyncClient.get", return_value=mock_response)
+
+    # Act / Assert
+    with pytest.raises(GitHubNotFoundError, match="GitHub user 'missing' not found"):
+        await fetch_user_repos_analytics("missing")
+
+
+@pytest.mark.asyncio
+async def test_fetch_user_repos_analytics_translates_403_to_rate_limit_error(mocker: pytest.MockFixture) -> None:
+    # Arrange
+    mock_response = mocker.Mock()
+    mock_response.status_code = 403
+    mock_response.json.return_value = []
+    mock_response.raise_for_status.return_value = None
+    mocker.patch("backend.clients.github.httpx.AsyncClient.get", return_value=mock_response)
+
+    # Act / Assert
+    with pytest.raises(GitHubRateLimitError, match="GitHub API rate limit exceeded"):
+        await fetch_user_repos_analytics("missing")

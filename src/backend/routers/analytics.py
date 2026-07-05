@@ -5,26 +5,23 @@ from fastapi import APIRouter, HTTPException
 
 from backend.clients import (
     GitHubNotFoundError,
-    GitHubProfileRequest,
-    GitHubProfileResponse,
     GitHubRateLimitError,
-    fetch_user_profile,
+    GitHubRepositoryAnalyticsResponse,
+    fetch_user_repos_analytics,
 )
 
 
-router = APIRouter(prefix="/api/profile", tags=["profile"])
+router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
 
-@router.get("/{username}", response_model=GitHubProfileResponse)
-async def get_profile(username: str) -> GitHubProfileResponse:
+@router.get("/{username}", response_model=GitHubRepositoryAnalyticsResponse)
+async def get_analytics(username: str) -> GitHubRepositoryAnalyticsResponse:
     normalized_username = username.strip()
     if not normalized_username:
         raise HTTPException(status_code=400, detail="username must not be empty")
 
-    request = GitHubProfileRequest(username=normalized_username)
-
     try:
-        return await fetch_user_profile(request)
+        return await fetch_user_repos_analytics(normalized_username)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except GitHubNotFoundError as exc:
@@ -32,4 +29,4 @@ async def get_profile(username: str) -> GitHubProfileResponse:
     except GitHubRateLimitError as exc:
         raise HTTPException(status_code=429, detail=str(exc)) from exc
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail="Failed to fetch GitHub profile") from exc
+        raise HTTPException(status_code=502, detail="Failed to fetch GitHub analytics") from exc
