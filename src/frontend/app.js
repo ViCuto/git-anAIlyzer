@@ -230,11 +230,6 @@ function renderTopRepositories(repositories) {
       meta.append(language);
     }
 
-    const forks = document.createElement('span');
-    forks.className = 'rounded-full border border-white/10 bg-white/5 px-2.5 py-1';
-    forks.textContent = `${Number(repository.forks_count ?? 0).toLocaleString()} forks`;
-    meta.append(forks);
-
     const description = document.createElement('p');
     description.className = 'mt-3 text-sm leading-6 text-slate-300';
     description.textContent = repository.description || 'No description provided.';
