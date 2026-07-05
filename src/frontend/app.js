@@ -1,4 +1,5 @@
 const API_BASE_URL = 'http://127.0.0.1:8000/api/profile';
+const LANGUAGE_API_BASE_URL = 'http://127.0.0.1:8000/api/languages';
 
 const form = document.getElementById('profile-search-form');
 const usernameInput = document.getElementById('username');
@@ -12,6 +13,9 @@ const profileBio = document.getElementById('profile-bio');
 const profileFollowers = document.getElementById('profile-followers');
 const profileRepos = document.getElementById('profile-repos');
 const profileLink = document.getElementById('profile-link');
+const languageChartCanvas = document.getElementById('language-chart');
+
+let languageChart = null;
 
 function showStatus(message, tone = 'info') {
   const toneClasses = {
@@ -40,6 +44,7 @@ function showLoading() {
   profileLink.href = '#';
   profileAvatar.removeAttribute('src');
   profileAvatar.alt = 'Loading avatar';
+  renderLanguageChart({});
 }
 
 function renderProfile(profile) {
@@ -66,7 +71,84 @@ function renderProfile(profile) {
 function renderError(message) {
   profileCard.classList.add('hidden');
   emptyState.classList.remove('hidden');
+  renderLanguageChart({});
   showStatus(message, 'error');
+}
+
+function renderLanguageChart(languageCounts) {
+  if (!languageChartCanvas) {
+    return;
+  }
+
+  if (languageChart) {
+    languageChart.destroy();
+    languageChart = null;
+  }
+
+  const languageEntries = Object.entries(languageCounts ?? {}).filter(([, count]) => Number(count) > 0);
+
+  if (!languageEntries.length) {
+    const context = languageChartCanvas.getContext('2d');
+    if (context) {
+      context.clearRect(0, 0, languageChartCanvas.width, languageChartCanvas.height);
+    }
+    return;
+  }
+
+  const labels = languageEntries.map(([language]) => language);
+  const values = languageEntries.map(([, count]) => Number(count));
+  const total = values.reduce((sum, value) => sum + value, 0);
+  const backgroundColors = [
+    '#22d3ee',
+    '#38bdf8',
+    '#60a5fa',
+    '#818cf8',
+    '#a78bfa',
+    '#f472b6',
+    '#fb7185',
+    '#f59e0b',
+  ];
+
+  languageChart = new Chart(languageChartCanvas, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [
+        {
+          data: values,
+          backgroundColor: labels.map((_, index) => backgroundColors[index % backgroundColors.length]),
+          borderColor: '#0f172a',
+          borderWidth: 2,
+          hoverOffset: 8,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            color: '#cbd5e1',
+            padding: 16,
+            usePointStyle: true,
+            pointStyle: 'circle',
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label(context) {
+              const value = Number(context.raw ?? 0);
+              const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+              return `${context.label}: ${value.toLocaleString()} (${percentage}%)`;
+            },
+          },
+        },
+      },
+    },
+  });
 }
 
 async function fetchProfile(username) {
@@ -94,6 +176,31 @@ async function fetchProfile(username) {
   throw new Error(detail || 'The profile request failed. Try again in a moment.');
 }
 
+async function fetchLanguageStats(username) {
+  const response = await fetch(`${LANGUAGE_API_BASE_URL}/${encodeURIComponent(username)}`, {
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (response.ok) {
+    return response.json();
+  }
+
+  const errorPayload = await response.json().catch(() => null);
+  const detail = errorPayload?.detail;
+
+  if (response.status === 404) {
+    throw new Error(detail || `No language data found for ${username}.`);
+  }
+
+  if (response.status === 400) {
+    throw new Error(detail || 'Enter a valid GitHub username.');
+  }
+
+  throw new Error(detail || 'The language data request failed. Try again in a moment.');
+}
+
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
 
@@ -109,7 +216,18 @@ form.addEventListener('submit', async (event) => {
   try {
     const profile = await fetchProfile(username);
     renderProfile(profile);
-    showStatus(`Loaded profile for ${profile.login ?? username}.`, 'info');
+
+    try {
+      const languageStats = await fetchLanguageStats(username);
+      renderLanguageChart(languageStats);
+      showStatus(`Loaded profile for ${profile.login ?? username}.`, 'info');
+    } catch {
+      renderLanguageChart({});
+      showStatus(
+        `Loaded profile for ${profile.login ?? username}, but the language chart could not be loaded.`,
+        'info',
+      );
+    }
   } catch (error) {
     renderError(error instanceof Error ? error.message : 'The profile request failed.');
   }

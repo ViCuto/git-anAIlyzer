@@ -6,6 +6,7 @@
     <meta name="description" content="Git-AnAIlyzer profile dashboard" />
     <title>Git-AnAIlyzer</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
@@ -90,6 +91,18 @@
                     <dd id="profile-repos" class="mt-2 text-3xl font-bold text-white"></dd>
                   </div>
                 </dl>
+
+                <div class="mt-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5">
+                  <div class="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 class="font-['Space_Grotesk'] text-lg font-semibold text-white">Language breakdown</h3>
+                      <p class="mt-1 text-sm text-slate-400">Programming language share across public repositories.</p>
+                    </div>
+                  </div>
+                  <div class="mt-4 aspect-square max-h-[320px] w-full">
+                    <canvas id="language-chart" aria-label="Programming language distribution chart" role="img"></canvas>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
