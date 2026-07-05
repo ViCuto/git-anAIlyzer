@@ -17,6 +17,7 @@ const languageChartCanvas = document.getElementById('language-chart');
 const topRepositoriesList = document.getElementById('top-repositories-list');
 
 let languageChart = null;
+let statusTimeoutId = null;
 
 function showStatus(message, tone = 'info') {
   const toneClasses = {
@@ -24,12 +25,28 @@ function showStatus(message, tone = 'info') {
     error: 'border-rose-400/20 bg-rose-400/10 text-rose-100',
   };
 
+  if (statusTimeoutId) {
+    clearTimeout(statusTimeoutId);
+    statusTimeoutId = null;
+  }
+
   statusMessage.className = `mt-6 rounded-2xl border px-4 py-3 text-sm ${toneClasses[tone]}`;
   statusMessage.textContent = message;
   statusMessage.classList.remove('hidden');
+
+  if (tone === 'info') {
+    statusTimeoutId = setTimeout(() => {
+      hideStatus();
+    }, 4000);
+  }
 }
 
 function hideStatus() {
+  if (statusTimeoutId) {
+    clearTimeout(statusTimeoutId);
+    statusTimeoutId = null;
+  }
+
   statusMessage.classList.add('hidden');
   statusMessage.textContent = '';
 }
