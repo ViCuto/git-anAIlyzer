@@ -12,6 +12,7 @@ const profileFollowers = document.getElementById('profile-followers');
 const profileRepos = document.getElementById('profile-repos');
 const profileStars = document.getElementById('profile-stars');
 const profileForks = document.getElementById('profile-forks');
+const profilePrs = document.getElementById('profile-prs');
 const profileLink = document.getElementById('profile-link');
 const languageChartCanvas = document.getElementById('language-chart');
 const topRepositoriesList = document.getElementById('top-repositories-list');
@@ -61,6 +62,7 @@ function showLoading() {
   profileRepos.textContent = '—';
   profileStars.textContent = '—';
   profileForks.textContent = '—';
+  profilePrs.textContent = '—';
   profileLink.href = '#';
   profileAvatar.removeAttribute('src');
   profileAvatar.alt = 'Loading avatar';
@@ -258,6 +260,7 @@ function normalizeAnalyticsPayload(payload) {
   return {
     total_stars: Number(payload?.total_stars ?? 0),
     total_forks: Number(payload?.total_forks ?? 0),
+    total_prs: Number(payload?.total_prs ?? 0),
     languages,
     top_repositories: topRepositories,
   };
@@ -337,12 +340,14 @@ form.addEventListener('submit', async (event) => {
       const analytics = normalizeAnalyticsPayload(await fetchAnalytics(username));
       profileStars.textContent = analytics.total_stars.toLocaleString();
       profileForks.textContent = analytics.total_forks.toLocaleString();
+      profilePrs.textContent = analytics.total_prs.toLocaleString();
       renderLanguageChart(analytics.languages);
       renderTopRepositories(analytics.top_repositories);
       showStatus(`Loaded profile for ${profile.login ?? username}.`, 'info');
     } catch (error) {
       profileStars.textContent = '—';
       profileForks.textContent = '—';
+      profilePrs.textContent = '0';
       renderLanguageChart({});
       renderTopRepositories([]);
 

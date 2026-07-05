@@ -21,6 +21,7 @@ def analytics_payload() -> GitHubRepositoryAnalyticsResponse:
     return GitHubRepositoryAnalyticsResponse(
         total_stars=58,
         total_forks=19,
+        total_prs=44,
         languages={"Python": 3, "JavaScript": 1, "Go": 1},
         top_repos=[
             {"name": "repo-c", "description": None, "html_url": "https://github.com/octocat/repo-c", "stargazers_count": 25},
@@ -48,6 +49,7 @@ def test_get_analytics_returns_aggregated_repo_data(
     assert response.json() == {
         "total_stars": 58,
         "total_forks": 19,
+        "total_prs": 44,
         "languages": {"Python": 3, "JavaScript": 1, "Go": 1},
         "top_repos": [
             {"name": "repo-c", "description": None, "html_url": "https://github.com/octocat/repo-c", "stargazers_count": 25},

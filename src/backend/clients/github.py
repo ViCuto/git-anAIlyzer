@@ -55,6 +55,7 @@ class GitHubTopRepositoryResponse(BaseModel):
 class GitHubRepositoryAnalyticsResponse(BaseModel):
     total_stars: int = 0
     total_forks: int = 0
+    total_prs: int = 0
     languages: dict[str, int]
     top_repos: list[GitHubTopRepositoryResponse]
 
@@ -127,10 +128,11 @@ async def fetch_user_repos_analytics(username: str) -> GitHubRepositoryAnalytics
         raise ValueError("username must not be empty")
 
     headers = {"Accept": "application/vnd.github+json", "User-Agent": "Git-AnAIlyzer"}
-    url = f"https://api.github.com/users/{quote(normalized_username)}/repos"
+    repos_url = f"https://api.github.com/users/{quote(normalized_username)}/repos"
+    search_url = "https://api.github.com/search/issues"
 
     async with httpx.AsyncClient(timeout=10.0, headers=headers) as client:
-        response = await client.get(url, params={"per_page": 100})
+        response = await client.get(repos_url, params={"per_page": 100})
 
     _raise_for_github_errors(response, normalized_username)
 
@@ -152,9 +154,20 @@ async def fetch_user_repos_analytics(username: str) -> GitHubRepositoryAnalytics
         reverse=True,
     )[:5]
 
+    search_query = f"type:pr author:{normalized_username}"
+
+    async with httpx.AsyncClient(timeout=10.0, headers=headers) as client:
+        pr_response = await client.get(search_url, params={"q": search_query})
+
+    _raise_for_github_errors(pr_response, normalized_username)
+
+    pr_response.raise_for_status()
+    total_prs = int(pr_response.json().get("total_count", 0))
+
     return GitHubRepositoryAnalyticsResponse(
         total_stars=total_stars,
         total_forks=total_forks,
+        total_prs=total_prs,
         languages=dict(language_counts),
         top_repos=[
             GitHubTopRepositoryResponse(

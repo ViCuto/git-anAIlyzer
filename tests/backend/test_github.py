@@ -187,11 +187,20 @@ async def test_fetch_user_repos_analytics_returns_aggregated_metrics(
     github_repos_payload: list[dict[str, object]],
 ) -> None:
     # Arrange
-    mock_response = mocker.Mock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = github_repos_payload
-    mock_response.raise_for_status.return_value = None
-    mock_get = mocker.patch("backend.clients.github.httpx.AsyncClient.get", return_value=mock_response)
+    repos_response = mocker.Mock()
+    repos_response.status_code = 200
+    repos_response.json.return_value = github_repos_payload
+    repos_response.raise_for_status.return_value = None
+
+    prs_response = mocker.Mock()
+    prs_response.status_code = 200
+    prs_response.json.return_value = {"total_count": 44}
+    prs_response.raise_for_status.return_value = None
+
+    mock_get = mocker.patch(
+        "backend.clients.github.httpx.AsyncClient.get",
+        side_effect=[repos_response, prs_response],
+    )
 
     # Act
     analytics = await fetch_user_repos_analytics(" octocat ")
@@ -199,10 +208,11 @@ async def test_fetch_user_repos_analytics_returns_aggregated_metrics(
     # Assert
     assert analytics.total_stars == 58
     assert analytics.total_forks == 19
+    assert analytics.total_prs == 44
     assert analytics.languages == {"Python": 3, "JavaScript": 1, "Go": 1}
     assert [repo.name for repo in analytics.top_repos] == ["repo-c", "repo-f", "repo-a", "repo-e", "repo-b"]
     assert analytics.top_repos[0].stargazers_count == 25
-    mock_get.assert_called_once()
+    assert mock_get.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -231,3 +241,29 @@ async def test_fetch_user_repos_analytics_translates_403_to_rate_limit_error(moc
     # Act / Assert
     with pytest.raises(GitHubRateLimitError, match="GitHub API rate limit exceeded"):
         await fetch_user_repos_analytics("missing")
+
+
+@pytest.mark.asyncio
+async def test_fetch_user_repos_analytics_translates_pr_search_403_to_rate_limit_error(
+    mocker: pytest.MockFixture,
+    github_repos_payload: list[dict[str, object]],
+) -> None:
+    # Arrange
+    repos_response = mocker.Mock()
+    repos_response.status_code = 200
+    repos_response.json.return_value = github_repos_payload
+    repos_response.raise_for_status.return_value = None
+
+    prs_response = mocker.Mock()
+    prs_response.status_code = 403
+    prs_response.json.return_value = {}
+    prs_response.raise_for_status.return_value = None
+
+    mocker.patch(
+        "backend.clients.github.httpx.AsyncClient.get",
+        side_effect=[repos_response, prs_response],
+    )
+
+    # Act / Assert
+    with pytest.raises(GitHubRateLimitError, match="GitHub API rate limit exceeded"):
+        await fetch_user_repos_analytics("octocat")
