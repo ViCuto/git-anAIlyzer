@@ -117,17 +117,26 @@
 
                 <div class="mt-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5">
                   <div>
-                    <h3 class="font-['Space_Grotesk'] text-lg font-semibold text-white">Top 5 repositories</h3>
+                    <h3 class="font-['Space_Grotesk'] text-lg font-semibold text-white">Top repositories</h3>
                     <p class="mt-1 text-sm text-slate-400">Most starred public repositories ranked for quick comparison.</p>
                   </div>
                   <ul id="top-repositories-list" class="mt-4 space-y-3"></ul>
-                  <button
-                    id="show-more-repositories"
-                    type="button"
-                    class="mt-4 hidden w-full rounded-xl border border-white/20 bg-transparent px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:border-cyan-300/40 hover:bg-white/5 hover:text-white"
-                  >
-                    Show more repositories
-                  </button>
+                  <div class="mt-5 flex items-center justify-center gap-3">
+                    <button
+                      id="show-less-repositories"
+                      type="button"
+                      class="hidden rounded-xl border border-slate-300/20 bg-transparent px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:border-cyan-300/40 hover:bg-cyan-400/10 hover:text-cyan-100 focus:outline-none focus:ring-2 focus:ring-cyan-300/40"
+                    >
+                      Show less
+                    </button>
+                    <button
+                      id="show-more-repositories"
+                      type="button"
+                      class="hidden rounded-xl border border-slate-300/20 bg-transparent px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:border-cyan-300/40 hover:bg-cyan-400/10 hover:text-cyan-100 focus:outline-none focus:ring-2 focus:ring-cyan-300/40"
+                    >
+                      Show more
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

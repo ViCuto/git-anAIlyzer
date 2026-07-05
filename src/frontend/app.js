@@ -17,11 +17,18 @@ const profileLink = document.getElementById('profile-link');
 const languageChartCanvas = document.getElementById('language-chart');
 const topRepositoriesList = document.getElementById('top-repositories-list');
 const showMoreRepositoriesButton = document.getElementById('show-more-repositories');
+const showLessRepositoriesButton = document.getElementById('show-less-repositories');
 
 let languageChart = null;
 let allRepositories = [];
-let isShowingAllRepositories = false;
+let visibleRepositoriesCount = 5;
 let statusHideTimeoutId = null;
+let languageColorMap = {};
+
+const REPOSITORIES_INITIAL_VISIBLE_COUNT = 5;
+const REPOSITORIES_SHOW_MORE_STEP = 10;
+const FALLBACK_LANGUAGE_COLOR = '#94a3b8';
+const LANGUAGE_CHART_COLORS = ['#22d3ee', '#38bdf8', '#60a5fa', '#818cf8', '#a78bfa', '#f472b6', '#fb7185', '#f59e0b'];
 
 function showStatus(message, tone = 'info') {
   const toneClasses = {
@@ -72,9 +79,9 @@ function showLoading() {
   profileAvatar.removeAttribute('src');
   profileAvatar.alt = 'Loading avatar';
   allRepositories = [];
-  isShowingAllRepositories = false;
-  renderLanguageChart({});
-  renderTopRepositories();
+  visibleRepositoriesCount = REPOSITORIES_INITIAL_VISIBLE_COUNT;
+  languageColorMap = renderLanguageChart({});
+  renderTopRepositories([], languageColorMap);
 }
 
 function renderProfile(profile) {
@@ -101,10 +108,10 @@ function renderProfile(profile) {
 function renderError(message) {
   profileCard.classList.add('hidden');
   emptyState.classList.remove('hidden');
-  renderLanguageChart({});
+  languageColorMap = renderLanguageChart({});
   allRepositories = [];
-  isShowingAllRepositories = false;
-  renderTopRepositories();
+  visibleRepositoriesCount = REPOSITORIES_INITIAL_VISIBLE_COUNT;
+  renderTopRepositories([], languageColorMap);
   showStatus(message, 'error');
 }
 
@@ -114,7 +121,7 @@ function renderAnalyticsError(message) {
 
 function renderLanguageChart(languageCounts) {
   if (!languageChartCanvas) {
-    return;
+    return {};
   }
 
   if (languageChart) {
@@ -129,22 +136,16 @@ function renderLanguageChart(languageCounts) {
     if (context) {
       context.clearRect(0, 0, languageChartCanvas.width, languageChartCanvas.height);
     }
-    return;
+    return {};
   }
 
   const labels = languageEntries.map(([language]) => language);
   const values = languageEntries.map(([, count]) => Number(count));
   const total = values.reduce((sum, value) => sum + value, 0);
-  const backgroundColors = [
-    '#22d3ee',
-    '#38bdf8',
-    '#60a5fa',
-    '#818cf8',
-    '#a78bfa',
-    '#f472b6',
-    '#fb7185',
-    '#f59e0b',
-  ];
+  const nextLanguageColorMap = labels.reduce((map, language, index) => {
+    map[language] = LANGUAGE_CHART_COLORS[index % LANGUAGE_CHART_COLORS.length];
+    return map;
+  }, {});
 
   languageChart = new Chart(languageChartCanvas, {
     type: 'doughnut',
@@ -153,7 +154,7 @@ function renderLanguageChart(languageCounts) {
       datasets: [
         {
           data: values,
-          backgroundColor: labels.map((_, index) => backgroundColors[index % backgroundColors.length]),
+          backgroundColor: labels.map((language) => nextLanguageColorMap[language] || FALLBACK_LANGUAGE_COLOR),
           borderColor: '#0f172a',
           borderWidth: 2,
           hoverOffset: 8,
@@ -186,21 +187,25 @@ function renderLanguageChart(languageCounts) {
       },
     },
   });
+
+  return nextLanguageColorMap;
 }
 
-function renderTopRepositories(repositories) {
+function renderTopRepositories(repositories, nextLanguageColorMap = languageColorMap) {
   if (!topRepositoriesList) {
     return;
   }
 
   if (Array.isArray(repositories)) {
     allRepositories = repositories;
-    isShowingAllRepositories = false;
+    visibleRepositoriesCount = REPOSITORIES_INITIAL_VISIBLE_COUNT;
   }
+
+  languageColorMap = nextLanguageColorMap ?? {};
 
   topRepositoriesList.innerHTML = '';
 
-  const items = isShowingAllRepositories ? allRepositories : allRepositories.slice(0, 5);
+  const items = allRepositories.slice(0, visibleRepositoriesCount);
 
   if (!items.length) {
     const emptyItem = document.createElement('li');
@@ -209,6 +214,9 @@ function renderTopRepositories(repositories) {
     topRepositoriesList.appendChild(emptyItem);
     if (showMoreRepositoriesButton) {
       showMoreRepositoriesButton.classList.add('hidden');
+    }
+    if (showLessRepositoriesButton) {
+      showLessRepositoriesButton.classList.add('hidden');
     }
     return;
   }
@@ -246,8 +254,16 @@ function renderTopRepositories(repositories) {
 
     if (repository.language) {
       const language = document.createElement('span');
-      language.className = 'rounded-full border border-white/10 bg-white/5 px-2.5 py-1';
-      language.textContent = repository.language;
+      language.className = 'inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-slate-200';
+
+      const dot = document.createElement('span');
+      dot.className = 'mr-2 inline-block h-3 w-3 rounded-full';
+      dot.style.backgroundColor = languageColorMap[repository.language] || FALLBACK_LANGUAGE_COLOR;
+
+      const text = document.createElement('span');
+      text.textContent = repository.language;
+
+      language.append(dot, text);
       meta.append(language);
     }
 
@@ -260,8 +276,13 @@ function renderTopRepositories(repositories) {
   });
 
   if (showMoreRepositoriesButton) {
-    const shouldShowButton = !isShowingAllRepositories && allRepositories.length > 5;
+    const shouldShowButton = visibleRepositoriesCount < allRepositories.length;
     showMoreRepositoriesButton.classList.toggle('hidden', !shouldShowButton);
+  }
+
+  if (showLessRepositoriesButton) {
+    const shouldShowButton = visibleRepositoriesCount > REPOSITORIES_INITIAL_VISIBLE_COUNT;
+    showLessRepositoriesButton.classList.toggle('hidden', !shouldShowButton);
   }
 }
 
@@ -364,8 +385,8 @@ form.addEventListener('submit', async (event) => {
       if (totalPrs) {
         totalPrs.textContent = analytics.total_prs.toLocaleString();
       }
-      renderLanguageChart(analytics.languages);
-      renderTopRepositories(analytics.top_repositories);
+      languageColorMap = renderLanguageChart(analytics.languages);
+      renderTopRepositories(analytics.top_repositories, languageColorMap);
       showStatus(`Loaded profile for ${profile.login ?? username}.`, 'info');
     } catch (error) {
       profileStars.textContent = '—';
@@ -373,10 +394,10 @@ form.addEventListener('submit', async (event) => {
       if (totalPrs) {
         totalPrs.textContent = '—';
       }
-      renderLanguageChart({});
+      languageColorMap = renderLanguageChart({});
       allRepositories = [];
-      isShowingAllRepositories = false;
-      renderTopRepositories();
+      visibleRepositoriesCount = REPOSITORIES_INITIAL_VISIBLE_COUNT;
+      renderTopRepositories([], languageColorMap);
 
       if (error instanceof Error && error.message.toLowerCase().includes('rate limit')) {
         renderAnalyticsError(error.message);
@@ -394,7 +415,17 @@ form.addEventListener('submit', async (event) => {
 
 if (showMoreRepositoriesButton) {
   showMoreRepositoriesButton.addEventListener('click', () => {
-    isShowingAllRepositories = true;
+    visibleRepositoriesCount = Math.min(
+      visibleRepositoriesCount + REPOSITORIES_SHOW_MORE_STEP,
+      allRepositories.length,
+    );
+    renderTopRepositories();
+  });
+}
+
+if (showLessRepositoriesButton) {
+  showLessRepositoriesButton.addEventListener('click', () => {
+    visibleRepositoriesCount = REPOSITORIES_INITIAL_VISIBLE_COUNT;
     renderTopRepositories();
   });
 }
