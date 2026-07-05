@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Git-AnAIlyzer profile dashboard" />
+    <title>Git-AnAIlyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  </head>
+  <body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
+    <main class="relative isolate overflow-hidden">
+      <div class="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.18),_transparent_32%),radial-gradient(circle_at_80%_20%,_rgba(59,130,246,0.16),_transparent_30%),linear-gradient(180deg,_#020617_0%,_#0f172a_100%)]"></div>
+      <div class="absolute inset-0 -z-10 opacity-20 [background-image:linear-gradient(rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px)] [background-size:40px_40px]"></div>
+
+      <section class="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+        <header class="mb-8 max-w-3xl">
+          <p class="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-cyan-200">
+            GitHub profile analyzer
+          </p>
+          <h1 class="font-['Space_Grotesk'] text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">Profile intelligence for GitHub users.</h1>
+          <p class="mt-4 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
+            Search any public GitHub username to inspect the profile snapshot, public repo count, follower count, and profile link in one focused view.
+          </p>
+        </header>
+
+        <section class="grid flex-1 gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+          <div class="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl shadow-slate-950/40 backdrop-blur-xl sm:p-8">
+            <form id="profile-search-form" class="space-y-4" novalidate>
+              <label for="username" class="block text-sm font-medium text-slate-200">GitHub username</label>
+              <div class="flex flex-col gap-3 sm:flex-row">
+                <input
+                  id="username"
+                  name="username"
+                  type="text"
+                  autocomplete="username"
+                  placeholder="octocat"
+                  class="w-full flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-base text-white placeholder:text-slate-500 shadow-inner shadow-slate-950/30 outline-none transition focus:border-cyan-400/60 focus:ring-2 focus:ring-cyan-400/20"
+                />
+                <button
+                  type="submit"
+                  class="inline-flex items-center justify-center rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 focus:ring-offset-slate-950"
+                >
+                  Analyze profile
+                </button>
+              </div>
+              <p id="helper-text" class="text-sm text-slate-400">Try a public account like octocat or torvalds.</p>
+            </form>
+
+            <div id="status-message" class="mt-6 hidden rounded-2xl border px-4 py-3 text-sm" role="status" aria-live="polite"></div>
+
+            <div id="profile-empty-state" class="mt-8 rounded-3xl border border-dashed border-white/10 bg-slate-950/30 p-8 text-center">
+              <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200 ring-1 ring-cyan-400/20">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-7 w-7" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 18 22 22m-3-11a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
+                </svg>
+              </div>
+              <h2 class="mt-4 font-['Space_Grotesk'] text-2xl font-semibold text-white">Search to load a profile</h2>
+              <p class="mt-2 text-sm leading-6 text-slate-400">The result panel will show the avatar, public stats, and a direct GitHub link after you submit a username.</p>
+            </div>
+
+            <div id="profile-card" class="mt-8 hidden overflow-hidden rounded-3xl border border-white/10 bg-slate-950/60 shadow-xl shadow-slate-950/30">
+              <div class="h-24 bg-[linear-gradient(135deg,_rgba(34,211,238,0.2),_rgba(59,130,246,0.18),_rgba(15,23,42,0.2))]"></div>
+              <div class="px-6 pb-6 sm:px-8">
+                <div class="-mt-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div class="flex items-end gap-4">
+                    <img id="profile-avatar" alt="GitHub avatar" class="h-24 w-24 rounded-3xl border-4 border-slate-950 bg-slate-800 object-cover shadow-lg" />
+                    <div>
+                      <p id="profile-login" class="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200"></p>
+                      <h2 id="profile-name" class="mt-1 font-['Space_Grotesk'] text-3xl font-bold text-white"></h2>
+                    </div>
+                  </div>
+                  <a id="profile-link" class="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-white" target="_blank" rel="noreferrer">
+                    View on GitHub
+                    <span aria-hidden="true">↗</span>
+                  </a>
+                </div>
+
+                <p id="profile-bio" class="mt-5 text-sm leading-7 text-slate-300"></p>
+
+                <dl class="mt-6 grid gap-3 sm:grid-cols-2">
+                  <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <dt class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Followers</dt>
+                    <dd id="profile-followers" class="mt-2 text-3xl font-bold text-white"></dd>
+                  </div>
+                  <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <dt class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Public repos</dt>
+                    <dd id="profile-repos" class="mt-2 text-3xl font-bold text-white"></dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
+          </div>
+
+          <aside class="rounded-3xl border border-white/10 bg-slate-950/40 p-6 backdrop-blur-xl sm:p-8">
+            <h2 class="font-['Space_Grotesk'] text-2xl font-semibold text-white">What the analyzer shows</h2>
+            <ul class="mt-5 space-y-4 text-sm leading-6 text-slate-300">
+              <li class="rounded-2xl border border-white/10 bg-white/5 p-4">A profile snapshot with avatar, display name, and bio.</li>
+              <li class="rounded-2xl border border-white/10 bg-white/5 p-4">Core public account stats that are quick to scan.</li>
+              <li class="rounded-2xl border border-white/10 bg-white/5 p-4">A direct link to the original GitHub profile for deeper review.</li>
+            </ul>
+          </aside>
+        </section>
+      </section>
+    </main>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
