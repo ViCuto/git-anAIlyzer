@@ -46,10 +46,13 @@ class GitHubRepositoryResponse(BaseModel):
 
 
 class GitHubTopRepositoryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str | None = None
     description: str | None = None
     html_url: str | None = None
     stargazers_count: int = 0
+    language: str | None = None
 
 
 class GitHubRepositoryAnalyticsResponse(BaseModel):
@@ -148,11 +151,11 @@ async def fetch_user_repos_analytics(username: str) -> GitHubRepositoryAnalytics
         if repository.language:
             language_counts[repository.language] += 1
 
-    top_repositories = sorted(
+    sorted_repositories = sorted(
         parsed_repositories,
         key=lambda repository: repository.stargazers_count,
         reverse=True,
-    )[:5]
+    )
 
     search_query = f"type:pr author:{normalized_username}"
 
@@ -175,7 +178,8 @@ async def fetch_user_repos_analytics(username: str) -> GitHubRepositoryAnalytics
                 description=repository.description,
                 html_url=repository.html_url,
                 stargazers_count=repository.stargazers_count,
+                language=repository.language,
             )
-            for repository in top_repositories
+            for repository in sorted_repositories
         ],
     )

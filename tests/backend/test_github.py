@@ -210,8 +210,11 @@ async def test_fetch_user_repos_analytics_returns_aggregated_metrics(
     assert analytics.total_forks == 19
     assert analytics.total_prs == 44
     assert analytics.languages == {"Python": 3, "JavaScript": 1, "Go": 1}
-    assert [repo.name for repo in analytics.top_repos] == ["repo-c", "repo-f", "repo-a", "repo-e", "repo-b"]
+    assert [repo.name for repo in analytics.top_repos] == ["repo-c", "repo-f", "repo-a", "repo-e", "repo-b", "repo-d"]
     assert analytics.top_repos[0].stargazers_count == 25
+    assert analytics.top_repos[0].language == "Python"
+    assert analytics.top_repos[-1].language is None
+    assert analytics.top_repos[-1].stargazers_count == 0
     assert mock_get.call_count == 2
 
 

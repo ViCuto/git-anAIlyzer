@@ -12,13 +12,16 @@ const profileFollowers = document.getElementById('profile-followers');
 const profileRepos = document.getElementById('profile-repos');
 const profileStars = document.getElementById('profile-stars');
 const profileForks = document.getElementById('profile-forks');
-const profilePrs = document.getElementById('profile-prs');
+const totalPrs = document.getElementById('total-prs');
 const profileLink = document.getElementById('profile-link');
 const languageChartCanvas = document.getElementById('language-chart');
 const topRepositoriesList = document.getElementById('top-repositories-list');
+const showMoreRepositoriesButton = document.getElementById('show-more-repositories');
 
 let languageChart = null;
-let statusTimeoutId = null;
+let allRepositories = [];
+let isShowingAllRepositories = false;
+let statusHideTimeoutId = null;
 
 function showStatus(message, tone = 'info') {
   const toneClasses = {
@@ -26,9 +29,9 @@ function showStatus(message, tone = 'info') {
     error: 'border-rose-400/20 bg-rose-400/10 text-rose-100',
   };
 
-  if (statusTimeoutId) {
-    clearTimeout(statusTimeoutId);
-    statusTimeoutId = null;
+  if (statusHideTimeoutId) {
+    clearTimeout(statusHideTimeoutId);
+    statusHideTimeoutId = null;
   }
 
   statusMessage.className = `mt-6 rounded-2xl border px-4 py-3 text-sm ${toneClasses[tone]}`;
@@ -36,16 +39,16 @@ function showStatus(message, tone = 'info') {
   statusMessage.classList.remove('hidden');
 
   if (tone === 'info') {
-    statusTimeoutId = setTimeout(() => {
+    statusHideTimeoutId = setTimeout(() => {
       hideStatus();
     }, 4000);
   }
 }
 
 function hideStatus() {
-  if (statusTimeoutId) {
-    clearTimeout(statusTimeoutId);
-    statusTimeoutId = null;
+  if (statusHideTimeoutId) {
+    clearTimeout(statusHideTimeoutId);
+    statusHideTimeoutId = null;
   }
 
   statusMessage.classList.add('hidden');
@@ -62,12 +65,16 @@ function showLoading() {
   profileRepos.textContent = '—';
   profileStars.textContent = '—';
   profileForks.textContent = '—';
-  profilePrs.textContent = '—';
+  if (totalPrs) {
+    totalPrs.textContent = '—';
+  }
   profileLink.href = '#';
   profileAvatar.removeAttribute('src');
   profileAvatar.alt = 'Loading avatar';
+  allRepositories = [];
+  isShowingAllRepositories = false;
   renderLanguageChart({});
-  renderTopRepositories([]);
+  renderTopRepositories();
 }
 
 function renderProfile(profile) {
@@ -95,7 +102,9 @@ function renderError(message) {
   profileCard.classList.add('hidden');
   emptyState.classList.remove('hidden');
   renderLanguageChart({});
-  renderTopRepositories([]);
+  allRepositories = [];
+  isShowingAllRepositories = false;
+  renderTopRepositories();
   showStatus(message, 'error');
 }
 
@@ -184,21 +193,33 @@ function renderTopRepositories(repositories) {
     return;
   }
 
+  if (Array.isArray(repositories)) {
+    allRepositories = repositories;
+    isShowingAllRepositories = false;
+  }
+
   topRepositoriesList.innerHTML = '';
 
-  const items = Array.isArray(repositories) ? repositories.slice(0, 5) : [];
+  const items = isShowingAllRepositories ? allRepositories : allRepositories.slice(0, 5);
 
   if (!items.length) {
     const emptyItem = document.createElement('li');
     emptyItem.className = 'rounded-2xl border border-dashed border-white/10 bg-slate-950/30 p-4 text-sm text-slate-400';
     emptyItem.textContent = 'No repository ranking data available.';
     topRepositoriesList.appendChild(emptyItem);
+    if (showMoreRepositoriesButton) {
+      showMoreRepositoriesButton.classList.add('hidden');
+    }
     return;
   }
 
   items.forEach((repository, index) => {
-    const item = document.createElement('li');
-    item.className = 'rounded-2xl border border-white/10 bg-slate-950/50 p-4 transition hover:border-cyan-400/30 hover:bg-slate-950/70';
+    const item = document.createElement('a');
+    item.className =
+      'block rounded-2xl border border-white/10 bg-slate-950/50 p-4 transition-colors hover:border-cyan-400/30 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/40';
+    item.href = repository.html_url || '#';
+    item.target = '_blank';
+    item.rel = 'noopener noreferrer';
 
     const header = document.createElement('div');
     header.className = 'flex items-start justify-between gap-4';
@@ -237,6 +258,11 @@ function renderTopRepositories(repositories) {
     item.append(header, meta, description);
     topRepositoriesList.appendChild(item);
   });
+
+  if (showMoreRepositoriesButton) {
+    const shouldShowButton = !isShowingAllRepositories && allRepositories.length > 5;
+    showMoreRepositoriesButton.classList.toggle('hidden', !shouldShowButton);
+  }
 }
 
 function normalizeAnalyticsPayload(payload) {
@@ -255,7 +281,7 @@ function normalizeAnalyticsPayload(payload) {
   return {
     total_stars: Number(payload?.total_stars ?? 0),
     total_forks: Number(payload?.total_forks ?? 0),
-    total_prs: Number(payload?.total_prs ?? 0),
+    total_prs: Number(payload?.total_prs ?? payload?.pull_requests ?? 0),
     languages,
     top_repositories: topRepositories,
   };
@@ -335,16 +361,22 @@ form.addEventListener('submit', async (event) => {
       const analytics = normalizeAnalyticsPayload(await fetchAnalytics(username));
       profileStars.textContent = analytics.total_stars.toLocaleString();
       profileForks.textContent = analytics.total_forks.toLocaleString();
-      profilePrs.textContent = analytics.total_prs.toLocaleString();
+      if (totalPrs) {
+        totalPrs.textContent = analytics.total_prs.toLocaleString();
+      }
       renderLanguageChart(analytics.languages);
       renderTopRepositories(analytics.top_repositories);
       showStatus(`Loaded profile for ${profile.login ?? username}.`, 'info');
     } catch (error) {
       profileStars.textContent = '—';
       profileForks.textContent = '—';
-      profilePrs.textContent = '0';
+      if (totalPrs) {
+        totalPrs.textContent = '—';
+      }
       renderLanguageChart({});
-      renderTopRepositories([]);
+      allRepositories = [];
+      isShowingAllRepositories = false;
+      renderTopRepositories();
 
       if (error instanceof Error && error.message.toLowerCase().includes('rate limit')) {
         renderAnalyticsError(error.message);
@@ -359,3 +391,10 @@ form.addEventListener('submit', async (event) => {
     renderError(error instanceof Error ? error.message : 'The profile request failed.');
   }
 });
+
+if (showMoreRepositoriesButton) {
+  showMoreRepositoriesButton.addEventListener('click', () => {
+    isShowingAllRepositories = true;
+    renderTopRepositories();
+  });
+}

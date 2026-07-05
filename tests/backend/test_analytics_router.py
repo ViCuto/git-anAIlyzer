@@ -24,8 +24,20 @@ def analytics_payload() -> GitHubRepositoryAnalyticsResponse:
         total_prs=44,
         languages={"Python": 3, "JavaScript": 1, "Go": 1},
         top_repos=[
-            {"name": "repo-c", "description": None, "html_url": "https://github.com/octocat/repo-c", "stargazers_count": 25},
-            {"name": "repo-f", "description": "sixth repo", "html_url": "https://github.com/octocat/repo-f", "stargazers_count": 12},
+            {
+                "name": "repo-c",
+                "description": None,
+                "html_url": "https://github.com/octocat/repo-c",
+                "stargazers_count": 25,
+                "language": "Python",
+            },
+            {
+                "name": "repo-f",
+                "description": "sixth repo",
+                "html_url": "https://github.com/octocat/repo-f",
+                "stargazers_count": 12,
+                "language": "Python",
+            },
         ],
     )
 
@@ -52,8 +64,20 @@ def test_get_analytics_returns_aggregated_repo_data(
         "total_prs": 44,
         "languages": {"Python": 3, "JavaScript": 1, "Go": 1},
         "top_repos": [
-            {"name": "repo-c", "description": None, "html_url": "https://github.com/octocat/repo-c", "stargazers_count": 25},
-            {"name": "repo-f", "description": "sixth repo", "html_url": "https://github.com/octocat/repo-f", "stargazers_count": 12},
+            {
+                "name": "repo-c",
+                "description": None,
+                "html_url": "https://github.com/octocat/repo-c",
+                "stargazers_count": 25,
+                "language": "Python",
+            },
+            {
+                "name": "repo-f",
+                "description": "sixth repo",
+                "html_url": "https://github.com/octocat/repo-f",
+                "stargazers_count": 12,
+                "language": "Python",
+            },
         ],
     }
     mock_fetch.assert_called_once_with("octocat")
