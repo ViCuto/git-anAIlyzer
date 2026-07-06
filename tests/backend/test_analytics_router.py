@@ -31,6 +31,7 @@ def analytics_payload() -> GitHubRepositoryAnalyticsResponse:
                 "stargazers_count": 25,
                 "language": "Python",
                 "pushed_at": "2026-07-01T12:00:00Z",
+                "topics": ["fastapi", "analytics", "api"],
             },
             {
                 "name": "repo-f",
@@ -39,6 +40,7 @@ def analytics_payload() -> GitHubRepositoryAnalyticsResponse:
                 "stargazers_count": 12,
                 "language": "Python",
                 "pushed_at": "2026-06-30T08:30:00Z",
+                "topics": [],
             },
         ],
     )
@@ -73,6 +75,7 @@ def test_get_analytics_returns_aggregated_repo_data(
                 "stargazers_count": 25,
                 "language": "Python",
                 "pushed_at": "2026-07-01T12:00:00Z",
+                "topics": ["fastapi", "analytics", "api"],
             },
             {
                 "name": "repo-f",
@@ -81,6 +84,7 @@ def test_get_analytics_returns_aggregated_repo_data(
                 "stargazers_count": 12,
                 "language": "Python",
                 "pushed_at": "2026-06-30T08:30:00Z",
+                "topics": [],
             },
         ],
     }

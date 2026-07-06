@@ -34,6 +34,7 @@ def github_repos_payload() -> list[dict[str, object]]:
             "forks_count": 2,
             "language": "Python",
             "pushed_at": "2026-06-29T10:00:00Z",
+            "topics": ["cli", "automation", "python"],
         },
         {
             "name": "repo-b",
@@ -43,6 +44,7 @@ def github_repos_payload() -> list[dict[str, object]]:
             "forks_count": 1,
             "language": "JavaScript",
             "pushed_at": "2026-06-20T10:00:00Z",
+            "topics": [],
         },
         {
             "name": "repo-c",
@@ -52,6 +54,7 @@ def github_repos_payload() -> list[dict[str, object]]:
             "forks_count": 5,
             "language": "Python",
             "pushed_at": "2026-07-01T12:00:00Z",
+            "topics": ["fastapi", "analytics", "dashboard", "github"],
         },
         {
             "name": "repo-d",
@@ -61,6 +64,7 @@ def github_repos_payload() -> list[dict[str, object]]:
             "forks_count": 0,
             "language": None,
             "updated_at": "2026-05-10T09:00:00Z",
+            "topics": ["legacy"],
         },
         {
             "name": "repo-e",
@@ -70,6 +74,7 @@ def github_repos_payload() -> list[dict[str, object]]:
             "forks_count": 7,
             "language": "Go",
             "pushed_at": "2026-06-25T14:15:00Z",
+            "topics": ["go", "microservice"],
         },
         {
             "name": "repo-f",
@@ -79,6 +84,7 @@ def github_repos_payload() -> list[dict[str, object]]:
             "forks_count": 4,
             "language": "Python",
             "pushed_at": "2026-06-30T08:30:00Z",
+            "topics": ["web", "api", "devtools", "monitoring", "reports", "charts", "extra"],
         },
     ]
 
@@ -220,9 +226,11 @@ async def test_fetch_user_repos_analytics_returns_aggregated_metrics(
     assert analytics.top_repos[0].stargazers_count == 25
     assert analytics.top_repos[0].language == "Python"
     assert analytics.top_repos[0].pushed_at == "2026-07-01T12:00:00Z"
+    assert analytics.top_repos[0].topics == ["fastapi", "analytics", "dashboard", "github"]
     assert analytics.top_repos[-1].language is None
     assert analytics.top_repos[-1].stargazers_count == 0
     assert analytics.top_repos[-1].pushed_at == "2026-05-10T09:00:00Z"
+    assert analytics.top_repos[-1].topics == ["legacy"]
     assert mock_get.call_count == 2
 
 

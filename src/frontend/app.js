@@ -34,6 +34,7 @@ const viewState = {
 
 const REPOSITORIES_INITIAL_VISIBLE_COUNT = 5;
 const REPOSITORIES_SHOW_MORE_STEP = 10;
+const REPOSITORY_TOPICS_MAX_VISIBLE = 6;
 const FALLBACK_LANGUAGE_COLOR = '#94a3b8';
 const LANGUAGE_CHART_COLORS = ['#22d3ee', '#38bdf8', '#60a5fa', '#818cf8', '#a78bfa', '#f472b6', '#fb7185', '#f59e0b'];
 
@@ -496,10 +497,33 @@ function renderTopRepositories(repositories, nextLanguageColorMap = languageColo
     }
 
     const description = document.createElement('p');
-    description.className = 'mt-3 text-sm leading-6 text-slate-300';
+    description.className = 'text-sm leading-6 text-slate-300';
     description.textContent = repository.description || 'No description provided.';
 
-    item.append(header, meta, description);
+    const topics = Array.isArray(repository.topics)
+      ? repository.topics
+          .filter((topic) => typeof topic === 'string' && topic.trim())
+          .slice(0, REPOSITORY_TOPICS_MAX_VISIBLE)
+      : [];
+
+    const topicsContainer = document.createElement('div');
+    topicsContainer.className = 'mt-3 mb-3 flex flex-wrap gap-2';
+
+    topics.forEach((topic) => {
+      const badge = document.createElement('span');
+      badge.className =
+        'inline-flex items-center rounded-full bg-slate-800/70 px-2 py-1 text-[11px] font-medium text-gray-400';
+      badge.textContent = topic;
+      topicsContainer.appendChild(badge);
+    });
+
+    item.append(header, meta);
+    if (topicsContainer.childElementCount > 0) {
+      item.appendChild(topicsContainer);
+    } else {
+      description.classList.add('mt-3');
+    }
+    item.appendChild(description);
     topRepositoriesList.appendChild(item);
   });
 

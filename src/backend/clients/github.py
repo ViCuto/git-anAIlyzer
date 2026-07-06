@@ -4,7 +4,7 @@ from collections import Counter
 from urllib.parse import quote
 
 import httpx
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class GitHubNotFoundError(Exception):
@@ -45,6 +45,7 @@ class GitHubRepositoryResponse(BaseModel):
     language: str | None = None
     pushed_at: str | None = None
     updated_at: str | None = None
+    topics: list[str] = Field(default_factory=list)
 
 
 class GitHubTopRepositoryResponse(BaseModel):
@@ -56,6 +57,7 @@ class GitHubTopRepositoryResponse(BaseModel):
     stargazers_count: int = 0
     language: str | None = None
     pushed_at: str | None = None
+    topics: list[str] = Field(default_factory=list)
 
 
 class GitHubRepositoryAnalyticsResponse(BaseModel):
@@ -183,6 +185,7 @@ async def fetch_user_repos_analytics(username: str) -> GitHubRepositoryAnalytics
                 stargazers_count=repository.stargazers_count,
                 language=repository.language,
                 pushed_at=repository.pushed_at or repository.updated_at,
+                topics=repository.topics,
             )
             for repository in sorted_repositories
         ],
