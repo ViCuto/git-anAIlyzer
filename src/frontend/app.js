@@ -30,6 +30,52 @@ const REPOSITORIES_SHOW_MORE_STEP = 10;
 const FALLBACK_LANGUAGE_COLOR = '#94a3b8';
 const LANGUAGE_CHART_COLORS = ['#22d3ee', '#38bdf8', '#60a5fa', '#818cf8', '#a78bfa', '#f472b6', '#fb7185', '#f59e0b'];
 
+function formatRelativeUpdatedTime(timestamp) {
+  if (!timestamp) {
+    return null;
+  }
+
+  const parsedDate = new Date(timestamp);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+
+  const now = new Date();
+  const diffMs = Math.max(0, now.getTime() - parsedDate.getTime());
+  const minuteMs = 60 * 1000;
+  const hourMs = 60 * minuteMs;
+  const dayMs = 24 * hourMs;
+  const monthMs = 30 * dayMs;
+  const yearMs = 365 * dayMs;
+
+  if (diffMs < minuteMs) {
+    return 'Updated just now';
+  }
+
+  if (diffMs < hourMs) {
+    const minutes = Math.floor(diffMs / minuteMs);
+    return `Updated ${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  }
+
+  if (diffMs < dayMs) {
+    const hours = Math.floor(diffMs / hourMs);
+    return `Updated ${hours} hour${hours === 1 ? '' : 's'} ago`;
+  }
+
+  if (diffMs < monthMs) {
+    const days = Math.floor(diffMs / dayMs);
+    return `Updated ${days} day${days === 1 ? '' : 's'} ago`;
+  }
+
+  if (diffMs < yearMs) {
+    const months = Math.floor(diffMs / monthMs);
+    return `Updated ${months} month${months === 1 ? '' : 's'} ago`;
+  }
+
+  const years = Math.floor(diffMs / yearMs);
+  return `Updated ${years} year${years === 1 ? '' : 's'} ago`;
+}
+
 function showStatus(message, tone = 'info') {
   const toneClasses = {
     info: 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100',
@@ -265,6 +311,14 @@ function renderTopRepositories(repositories, nextLanguageColorMap = languageColo
 
       language.append(dot, text);
       meta.append(language);
+    }
+
+    const updatedLabel = formatRelativeUpdatedTime(repository.pushed_at || repository.updated_at);
+    if (updatedLabel) {
+      const updated = document.createElement('span');
+      updated.className = 'text-xs text-gray-400';
+      updated.textContent = updatedLabel;
+      meta.append(updated);
     }
 
     const description = document.createElement('p');

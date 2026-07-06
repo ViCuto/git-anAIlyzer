@@ -30,6 +30,7 @@ def analytics_payload() -> GitHubRepositoryAnalyticsResponse:
                 "html_url": "https://github.com/octocat/repo-c",
                 "stargazers_count": 25,
                 "language": "Python",
+                "pushed_at": "2026-07-01T12:00:00Z",
             },
             {
                 "name": "repo-f",
@@ -37,6 +38,7 @@ def analytics_payload() -> GitHubRepositoryAnalyticsResponse:
                 "html_url": "https://github.com/octocat/repo-f",
                 "stargazers_count": 12,
                 "language": "Python",
+                "pushed_at": "2026-06-30T08:30:00Z",
             },
         ],
     )
@@ -70,6 +72,7 @@ def test_get_analytics_returns_aggregated_repo_data(
                 "html_url": "https://github.com/octocat/repo-c",
                 "stargazers_count": 25,
                 "language": "Python",
+                "pushed_at": "2026-07-01T12:00:00Z",
             },
             {
                 "name": "repo-f",
@@ -77,6 +80,7 @@ def test_get_analytics_returns_aggregated_repo_data(
                 "html_url": "https://github.com/octocat/repo-f",
                 "stargazers_count": 12,
                 "language": "Python",
+                "pushed_at": "2026-06-30T08:30:00Z",
             },
         ],
     }

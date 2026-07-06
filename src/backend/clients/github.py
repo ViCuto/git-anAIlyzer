@@ -43,6 +43,8 @@ class GitHubRepositoryResponse(BaseModel):
     stargazers_count: int = 0
     forks_count: int = 0
     language: str | None = None
+    pushed_at: str | None = None
+    updated_at: str | None = None
 
 
 class GitHubTopRepositoryResponse(BaseModel):
@@ -53,6 +55,7 @@ class GitHubTopRepositoryResponse(BaseModel):
     html_url: str | None = None
     stargazers_count: int = 0
     language: str | None = None
+    pushed_at: str | None = None
 
 
 class GitHubRepositoryAnalyticsResponse(BaseModel):
@@ -179,6 +182,7 @@ async def fetch_user_repos_analytics(username: str) -> GitHubRepositoryAnalytics
                 html_url=repository.html_url,
                 stargazers_count=repository.stargazers_count,
                 language=repository.language,
+                pushed_at=repository.pushed_at or repository.updated_at,
             )
             for repository in sorted_repositories
         ],
