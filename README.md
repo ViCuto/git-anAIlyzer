@@ -1,4 +1,4 @@
-﻿# GitHub-Profile-AnAIlyzer
+﻿# GitHub-Profile-AnAIyzer
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-API-009688?logo=fastapi&logoColor=white)
