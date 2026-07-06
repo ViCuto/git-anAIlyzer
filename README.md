@@ -11,7 +11,7 @@ Real-time GitHub developer analytics dashboard that turns any public username in
 
 Git-AnAIlyzer is a lightweight full-stack web app that fetches public data from the GitHub REST API and presents it in a modern, interactive dashboard. The backend (FastAPI) handles profile retrieval, repository aggregation, language distribution, pull request counting, and domain-specific error mapping. The frontend (Vanilla JavaScript + Tailwind + Chart.js) renders profile cards, language charts, technology topics, and sortable repository lists with fast client-side interactions. The project is intentionally stateless and simple to run locally.
 
-![Git-AnAIlyzer Dashboard](image_dd9464.jpg)
+![Git-AnAIlyzer Dashboard](screenshot.jpg)
 
 ## Table of Contents
 
