@@ -75,25 +75,46 @@ This project was built **entirely using AI-driven development**.
 
 1. Clone the repository:
 ```bash
-git clone <your-repo-url>
+git clone <repo-url>
 cd git-anAIlyzer
 ```
 
 2. Create and activate a virtual environment:
+
+Windows PowerShell:
 ```bash
 python -m venv .venv
-# Windows PowerShell
 .\.venv\Scripts\Activate.ps1
 ```
 
+Linux/macOS (bash/zsh):
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
 3. Install dependencies:
+
+Windows PowerShell:
+```bash
+pip install -r requirements.txt
+```
+
+Linux/macOS (bash/zsh):
 ```bash
 pip install -r requirements.txt
 ```
 
 4. Configure environment variables:
+
+Windows PowerShell:
 ```bash
 copy .env.example .env
+```
+
+Linux/macOS (bash/zsh):
+```bash
+cp .env.example .env
 ```
 
 5. Update `.env` (optional but recommended):
@@ -104,6 +125,13 @@ GITHUB_TOKEN=your_github_token_here
 ### Executing Program
 
 Start the FastAPI app from the project root:
+
+Windows PowerShell:
+```bash
+python -m uvicorn backend.app:app --app-dir src --host 127.0.0.1 --port 8000
+```
+
+Linux/macOS (bash/zsh):
 ```bash
 python -m uvicorn backend.app:app --app-dir src --host 127.0.0.1 --port 8000
 ```
