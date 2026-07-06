@@ -5,14 +5,20 @@ from fastapi import APIRouter, HTTPException
 
 from backend.clients import (
     GitHubNotFoundError,
+    GitHubClient,
     GitHubProfileRequest,
     GitHubProfileResponse,
     GitHubRateLimitError,
-    fetch_user_profile,
 )
+from backend.services import ProfileService
 
 
 router = APIRouter(prefix="/api/profile", tags=["profile"])
+_profile_service = ProfileService(github_client=GitHubClient())
+
+
+async def fetch_user_profile(request: GitHubProfileRequest) -> GitHubProfileResponse:
+    return await _profile_service.get_profile(request)
 
 
 @router.get("/{username}", response_model=GitHubProfileResponse)

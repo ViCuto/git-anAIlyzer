@@ -83,6 +83,84 @@ class GitHubRepositoryAnalyticsResponse(BaseModel):
     top_repos: list[GitHubTopRepositoryResponse]
 
 
+class GitHubClient:
+    def __init__(
+        self,
+        *,
+        base_url: str = "https://api.github.com",
+        user_agent: str = "Git-AnAIlyzer",
+        timeout: float = 10.0,
+    ) -> None:
+        self.base_url = base_url
+        self.user_agent = user_agent
+        self.timeout = timeout
+
+    def build_headers(self) -> dict[str, str]:
+        return _build_github_headers(self.user_agent)
+
+    @staticmethod
+    def normalize_username(username: str) -> str:
+        normalized_username = username.strip()
+        if not normalized_username:
+            raise ValueError("username must not be empty")
+        return normalized_username
+
+    async def fetch_profile_payload(self, username: str) -> dict[str, object]:
+        normalized_username = self.normalize_username(username)
+        url = f"{self.base_url}/users/{quote(normalized_username)}"
+
+        async with httpx.AsyncClient(timeout=self.timeout, headers=self.build_headers()) as client:
+            response = await client.get(url)
+
+        _raise_for_github_errors(response, normalized_username)
+        response.raise_for_status()
+        return response.json()
+
+    async def fetch_repositories(self, username: str) -> list[GitHubRepositoryResponse]:
+        normalized_username = self.normalize_username(username)
+        repos_url = f"{self.base_url}/users/{quote(normalized_username)}/repos"
+        page = 1
+        per_page = 100
+        parsed_repositories: list[GitHubRepositoryResponse] = []
+
+        async with httpx.AsyncClient(timeout=self.timeout, headers=self.build_headers()) as client:
+            while True:
+                repos_response = await client.get(
+                    repos_url,
+                    params={"per_page": per_page, "page": page},
+                )
+
+                _raise_for_github_errors(repos_response, normalized_username)
+                repos_response.raise_for_status()
+                repositories_payload = repos_response.json()
+
+                if not repositories_payload:
+                    break
+
+                parsed_repositories.extend(
+                    GitHubRepositoryResponse.model_validate(repository)
+                    for repository in repositories_payload
+                )
+
+                if len(repositories_payload) < per_page:
+                    break
+
+                page += 1
+
+        return parsed_repositories
+
+    async def fetch_pull_request_count(self, username: str) -> int:
+        normalized_username = self.normalize_username(username)
+        search_url = f"{self.base_url}/search/issues"
+
+        async with httpx.AsyncClient(timeout=self.timeout, headers=self.build_headers()) as client:
+            pr_response = await client.get(search_url, params={"q": f"type:pr author:{normalized_username}"})
+
+        _raise_for_github_errors(pr_response, normalized_username)
+        pr_response.raise_for_status()
+        return int(pr_response.json().get("total_count", 0))
+
+
 def _build_github_headers(user_agent: str = "Git-AnAIlyzer") -> dict[str, str]:
     headers = {"Accept": "application/vnd.github+json", "User-Agent": user_agent}
     github_token = os.getenv("GITHUB_TOKEN", "").strip()
@@ -120,172 +198,23 @@ def _extract_top_topics(
 
 
 async def fetch_user_profile(request: GitHubProfileRequest) -> GitHubProfileResponse:
-    normalized_username = request.username.strip()
-    if not normalized_username:
-        raise ValueError("username must not be empty")
+    from backend.services.profile import ProfileService
 
-    url = f"{request.base_url}/users/{quote(normalized_username)}"
-    repos_url = f"{request.base_url}/users/{quote(normalized_username)}/repos"
-    headers = _build_github_headers(request.user_agent)
-
-    parsed_repositories: list[GitHubRepositoryResponse] = []
-
-    async with httpx.AsyncClient(timeout=request.timeout, headers=headers) as client:
-        response = await client.get(url)
-
-        _raise_for_github_errors(response, normalized_username)
-
-        response.raise_for_status()
-        profile_payload = response.json()
-
-        page = 1
-        per_page = 100
-        while True:
-            repos_response = await client.get(
-                repos_url,
-                params={"per_page": per_page, "page": page},
-            )
-
-            _raise_for_github_errors(repos_response, normalized_username)
-
-            repos_response.raise_for_status()
-            repositories_payload = repos_response.json()
-
-            if not repositories_payload:
-                break
-
-            parsed_repositories.extend(
-                GitHubRepositoryResponse.model_validate(repository)
-                for repository in repositories_payload
-            )
-
-            if len(repositories_payload) < per_page:
-                break
-
-            page += 1
-
-    top_topics = _extract_top_topics(parsed_repositories)
-    profile_payload["top_topics"] = [topic.model_dump() for topic in top_topics]
-    return GitHubProfileResponse.model_validate(profile_payload)
+    github_client = GitHubClient(
+        base_url=request.base_url,
+        user_agent=request.user_agent,
+        timeout=request.timeout,
+    )
+    return await ProfileService(github_client=github_client).get_profile(request)
 
 
 async def fetch_user_language_stats(username: str) -> dict[str, int]:
-    normalized_username = username.strip()
-    if not normalized_username:
-        raise ValueError("username must not be empty")
+    from backend.services.languages import LanguageService
 
-    headers = _build_github_headers()
-    base_url = "https://api.github.com"
-    per_page = 100
-    page = 1
-    language_counts: Counter[str] = Counter()
-
-    async with httpx.AsyncClient(timeout=10.0, headers=headers) as client:
-        while True:
-            url = f"{base_url}/users/{quote(normalized_username)}/repos"
-            response = await client.get(url, params={"per_page": per_page, "page": page})
-
-            _raise_for_github_errors(response, normalized_username)
-
-            response.raise_for_status()
-            repositories = response.json()
-
-            if not repositories:
-                break
-
-            for repository in repositories:
-                language = GitHubRepositoryResponse.model_validate(repository).language
-                if language:
-                    language_counts[language] += 1
-
-            if len(repositories) < per_page:
-                break
-
-            page += 1
-
-    return dict(language_counts)
+    return await LanguageService(github_client=GitHubClient()).get_language_stats(username)
 
 
 async def fetch_user_repos_analytics(username: str) -> GitHubRepositoryAnalyticsResponse:
-    normalized_username = username.strip()
-    if not normalized_username:
-        raise ValueError("username must not be empty")
+    from backend.services.analytics import AnalyticsService
 
-    headers = _build_github_headers()
-    repos_url = f"https://api.github.com/users/{quote(normalized_username)}/repos"
-    search_url = "https://api.github.com/search/issues"
-    per_page = 100
-    page = 1
-    repository_pages: list[dict[str, object]] = []
-
-    async with httpx.AsyncClient(timeout=10.0, headers=headers) as client:
-        while True:
-            response = await client.get(repos_url, params={"per_page": per_page, "page": page})
-
-            _raise_for_github_errors(response, normalized_username)
-
-            response.raise_for_status()
-            repositories = response.json()
-
-            if not repositories:
-                break
-
-            repository_pages.extend(repositories)
-
-            if len(repositories) < per_page:
-                break
-
-            page += 1
-
-        pr_response = await client.get(search_url, params={"q": f"type:pr author:{normalized_username}"})
-
-    _raise_for_github_errors(pr_response, normalized_username)
-
-    pr_response.raise_for_status()
-    total_prs = int(pr_response.json().get("total_count", 0))
-
-    parsed_repositories = [GitHubRepositoryResponse.model_validate(repository) for repository in repository_pages]
-    total_stars = sum(repository.stargazers_count for repository in parsed_repositories)
-    total_forks = sum(repository.forks_count for repository in parsed_repositories)
-
-    language_counts: Counter[str] = Counter()
-    for repository in parsed_repositories:
-        if repository.language:
-            language_counts[repository.language] += 1
-
-    sorted_repositories = sorted(
-        parsed_repositories,
-        key=lambda repository: repository.stargazers_count,
-        reverse=True,
-    )
-
-    return GitHubRepositoryAnalyticsResponse(
-        total_stars=total_stars,
-        total_forks=total_forks,
-        total_prs=total_prs,
-        languages=dict(language_counts),
-        repositories=[
-            GitHubTopRepositoryResponse(
-                name=repository.name,
-                description=repository.description,
-                html_url=repository.html_url,
-                stargazers_count=repository.stargazers_count,
-                language=repository.language,
-                pushed_at=repository.pushed_at or repository.updated_at,
-                topics=repository.topics,
-            )
-            for repository in parsed_repositories
-        ],
-        top_repos=[
-            GitHubTopRepositoryResponse(
-                name=repository.name,
-                description=repository.description,
-                html_url=repository.html_url,
-                stargazers_count=repository.stargazers_count,
-                language=repository.language,
-                pushed_at=repository.pushed_at or repository.updated_at,
-                topics=repository.topics,
-            )
-            for repository in sorted_repositories
-        ],
-    )
+    return await AnalyticsService(github_client=GitHubClient()).get_analytics(username)

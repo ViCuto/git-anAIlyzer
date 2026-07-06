@@ -1,4 +1,5 @@
 from .github import (
+	GitHubClient,
 	GitHubRateLimitError,
 	GitHubNotFoundError,
 	GitHubRepositoryAnalyticsResponse,
@@ -10,6 +11,7 @@ from .github import (
 )
 
 __all__ = [
+	"GitHubClient",
 	"GitHubRateLimitError",
 	"GitHubNotFoundError",
 	"GitHubRepositoryAnalyticsResponse",

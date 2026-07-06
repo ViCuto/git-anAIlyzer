@@ -2,10 +2,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from backend.clients import GitHubNotFoundError, GitHubRateLimitError, fetch_user_language_stats
+from backend.clients import GitHubClient, GitHubNotFoundError, GitHubRateLimitError
+from backend.services import LanguageService
 
 
 router = APIRouter(prefix="/api/languages", tags=["languages"])
+_language_service = LanguageService(github_client=GitHubClient())
+
+
+async def fetch_user_language_stats(username: str) -> dict[str, int]:
+    return await _language_service.get_language_stats(username)
 
 
 @router.get("/{username}")
