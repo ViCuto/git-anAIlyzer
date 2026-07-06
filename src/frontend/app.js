@@ -15,6 +15,7 @@ const profileForks = document.getElementById('profile-forks');
 const totalPrs = document.getElementById('total-prs');
 const profileLink = document.getElementById('profile-link');
 const languageChartCanvas = document.getElementById('language-chart');
+const coreTechnologiesCloud = document.getElementById('core-technologies-cloud');
 const topRepositoriesList = document.getElementById('top-repositories-list');
 const showMoreRepositoriesButton = document.getElementById('show-more-repositories');
 const showLessRepositoriesButton = document.getElementById('show-less-repositories');
@@ -26,8 +27,10 @@ let allRepositories = [];
 let visibleRepositoriesCount = 5;
 let statusHideTimeoutId = null;
 let languageColorMap = {};
+let latestTopTopics = [];
 const viewState = {
   activeFilter: null,
+  activeTopicFilter: null,
   activeSortBy: 'stars',
   activeSortOrder: 'desc',
 };
@@ -37,6 +40,10 @@ const REPOSITORIES_SHOW_MORE_STEP = 10;
 const REPOSITORY_TOPICS_MAX_VISIBLE = 6;
 const FALLBACK_LANGUAGE_COLOR = '#94a3b8';
 const LANGUAGE_CHART_COLORS = ['#22d3ee', '#38bdf8', '#60a5fa', '#818cf8', '#a78bfa', '#f472b6', '#fb7185', '#f59e0b'];
+const compactNumberFormatter = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
 
 function withOpacity(hexColor, opacity) {
   const safeOpacity = Math.max(0, Math.min(1, Number(opacity)));
@@ -67,11 +74,52 @@ function getRepositoryUpdatedTimestamp(repository) {
   return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
 }
 
+function normalizeTopicValue(value) {
+  return typeof value === 'string' ? value.trim().toLocaleLowerCase() : '';
+}
+
+function formatCompactNumber(value) {
+  const numericValue = Number(value ?? 0);
+  if (!Number.isFinite(numericValue)) {
+    return '0';
+  }
+
+  return compactNumberFormatter.format(numericValue);
+}
+
+function repositoryHasTopic(repository, topicName) {
+  const normalizedTopicName = normalizeTopicValue(topicName);
+  if (!normalizedTopicName) {
+    return false;
+  }
+
+  const rawTopics = Array.isArray(repository?.topics) ? repository.topics : [];
+
+  return rawTopics.some((topic) => {
+    if (typeof topic === 'string') {
+      return normalizeTopicValue(topic) === normalizedTopicName;
+    }
+
+    if (typeof topic?.name === 'string') {
+      return normalizeTopicValue(topic.name) === normalizedTopicName;
+    }
+
+    return false;
+  });
+}
+
 function getProcessedRepositories() {
+  const normalizedActiveTopic = normalizeTopicValue(viewState.activeTopicFilter);
+
+  const topicFilteredRepositories =
+    normalizedActiveTopic.length === 0
+      ? allRepositories.slice()
+      : allRepositories.filter((repository) => repositoryHasTopic(repository, normalizedActiveTopic));
+
   const filteredRepositories =
     viewState.activeFilter == null
-      ? allRepositories.slice()
-      : allRepositories.filter((repository) => repository?.language === viewState.activeFilter);
+      ? topicFilteredRepositories
+      : topicFilteredRepositories.filter((repository) => repository?.language === viewState.activeFilter);
 
   const sortedRepositories = filteredRepositories.slice().sort((left, right) => {
     const leftStars = Number(left?.stargazers_count ?? 0);
@@ -105,6 +153,20 @@ function getProcessedRepositories() {
   });
 
   return sortedRepositories;
+}
+
+function setActiveTopicFilter(topicName) {
+  const normalizedTopic = normalizeTopicValue(topicName);
+  if (!normalizedTopic) {
+    viewState.activeTopicFilter = null;
+    applyFilterAndSort(true);
+    return;
+  }
+
+  viewState.activeTopicFilter = viewState.activeTopicFilter === normalizedTopic ? null : normalizedTopic;
+  visibleRepositoriesCount = REPOSITORIES_INITIAL_VISIBLE_COUNT;
+  renderCoreTechnologies(latestTopTopics);
+  applyFilterAndSort(true);
 }
 
 function syncSortSelection() {
@@ -232,10 +294,12 @@ function showLoading() {
   allRepositories = [];
   visibleRepositoriesCount = REPOSITORIES_INITIAL_VISIBLE_COUNT;
   viewState.activeFilter = null;
+  viewState.activeTopicFilter = null;
   viewState.activeSortBy = 'stars';
   viewState.activeSortOrder = 'desc';
   syncSortSelection();
   languageColorMap = renderLanguageChart({});
+  renderCoreTechnologies([]);
   renderTopRepositories([], languageColorMap);
 }
 
@@ -246,8 +310,8 @@ function renderProfile(profile) {
   profileLogin.textContent = `@${profile.login ?? 'unknown'}`;
   profileName.textContent = profile.name ?? profile.login ?? 'GitHub user';
   profileBio.textContent = profile.bio || 'No bio provided on the public profile.';
-  profileFollowers.textContent = Number(profile.followers ?? 0).toLocaleString();
-  profileRepos.textContent = Number(profile.public_repos ?? 0).toLocaleString();
+  profileFollowers.textContent = formatCompactNumber(profile.followers ?? 0);
+  profileRepos.textContent = formatCompactNumber(profile.public_repos ?? 0);
   profileLink.href = profile.html_url || `https://github.com/${encodeURIComponent(profile.login ?? '')}`;
   profileLink.textContent = 'View on GitHub';
 
@@ -258,6 +322,7 @@ function renderProfile(profile) {
   }
 
   profileAvatar.alt = `${profile.name ?? profile.login ?? 'GitHub user'} avatar`;
+  renderCoreTechnologies(profile.top_topics);
 }
 
 function renderError(message) {
@@ -267,15 +332,93 @@ function renderError(message) {
   allRepositories = [];
   visibleRepositoriesCount = REPOSITORIES_INITIAL_VISIBLE_COUNT;
   viewState.activeFilter = null;
+  viewState.activeTopicFilter = null;
   viewState.activeSortBy = 'stars';
   viewState.activeSortOrder = 'desc';
   syncSortSelection();
+  renderCoreTechnologies([]);
   renderTopRepositories([], languageColorMap);
   showStatus(message, 'error');
 }
 
 function renderAnalyticsError(message) {
   showStatus(message, 'error');
+}
+
+function normalizeTopTopics(topics) {
+  if (!Array.isArray(topics)) {
+    return [];
+  }
+
+  return topics
+    .map((topic) => {
+      const name = typeof topic?.name === 'string' ? topic.name.trim() : '';
+      const count = Number(topic?.count ?? 0);
+
+      if (!name || !Number.isFinite(count) || count <= 0) {
+        return null;
+      }
+
+      return { name, count };
+    })
+    .filter((topic) => topic !== null);
+}
+
+function renderCoreTechnologies(topics) {
+  if (!coreTechnologiesCloud) {
+    return;
+  }
+
+  coreTechnologiesCloud.innerHTML = '';
+  const normalizedTopics = normalizeTopTopics(topics);
+  latestTopTopics = normalizedTopics;
+
+  if (!normalizedTopics.length) {
+    const emptyText = document.createElement('p');
+    emptyText.className = 'text-sm text-slate-400';
+    emptyText.textContent = 'No topic data available yet.';
+    coreTechnologiesCloud.appendChild(emptyText);
+    return;
+  }
+
+  const maxCount = Math.max(...normalizedTopics.map((topic) => topic.count));
+  const minCount = Math.min(...normalizedTopics.map((topic) => topic.count));
+  const countRange = Math.max(1, maxCount - minCount);
+
+  normalizedTopics.forEach((topic) => {
+    const ratio = (topic.count - minCount) / countRange;
+    const alpha = 0.18 + ratio * 0.2;
+    const borderAlpha = 0.28 + ratio * 0.25;
+    const fontSize = 12 + ratio * 2;
+    const isActive = normalizeTopicValue(viewState.activeTopicFilter) === normalizeTopicValue(topic.name);
+
+    const badge = document.createElement('button');
+    badge.type = 'button';
+    badge.className = `inline-flex cursor-pointer items-center rounded-full px-3 py-1.5 font-semibold tracking-wide text-cyan-50 shadow-inner transition-colors hover:bg-slate-700 ${
+      isActive ? 'ring-1 ring-cyan-200/60' : ''
+    }`;
+    badge.style.backgroundColor = isActive
+      ? 'rgba(71, 85, 105, 0.82)'
+      : `rgba(6, 182, 212, ${alpha.toFixed(3)})`;
+    badge.style.border = isActive
+      ? '1px solid rgba(186, 230, 253, 0.75)'
+      : `1px solid rgba(34, 211, 238, ${borderAlpha.toFixed(3)})`;
+    badge.style.fontSize = `${fontSize.toFixed(1)}px`;
+
+    const topicName = document.createElement('span');
+    topicName.textContent = topic.name;
+
+    const topicCount = document.createElement('span');
+    topicCount.className = 'ml-1 rounded-full bg-slate-800 px-1.5 py-0.5 text-xs text-slate-100';
+    topicCount.textContent = topic.count.toLocaleString();
+
+    badge.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    badge.addEventListener('click', () => {
+      setActiveTopicFilter(topic.name);
+    });
+    badge.append(topicName, topicCount);
+    coreTechnologiesCloud.appendChild(badge);
+  });
 }
 
 function renderLanguageChart(languageCounts) {
@@ -565,9 +708,9 @@ function renderTopRepositories(repositories, nextLanguageColorMap = languageColo
 
 function normalizeAnalyticsPayload(payload) {
   const topRepositories =
+    (Array.isArray(payload?.repositories) && payload.repositories) ||
     (Array.isArray(payload?.top_repositories) && payload.top_repositories) ||
     (Array.isArray(payload?.top_repos) && payload.top_repos) ||
-    (Array.isArray(payload?.repositories) && payload.repositories) ||
     (Array.isArray(payload?.topRepositories) && payload.topRepositories) ||
     [];
 
@@ -657,10 +800,10 @@ form.addEventListener('submit', async (event) => {
 
     try {
       const analytics = normalizeAnalyticsPayload(await fetchAnalytics(username));
-      profileStars.textContent = analytics.total_stars.toLocaleString();
-      profileForks.textContent = analytics.total_forks.toLocaleString();
+      profileStars.textContent = formatCompactNumber(analytics.total_stars);
+      profileForks.textContent = formatCompactNumber(analytics.total_forks);
       if (totalPrs) {
-        totalPrs.textContent = analytics.total_prs.toLocaleString();
+        totalPrs.textContent = formatCompactNumber(analytics.total_prs);
       }
       languageColorMap = renderLanguageChart(analytics.languages);
       renderTopRepositories(analytics.top_repositories, languageColorMap);

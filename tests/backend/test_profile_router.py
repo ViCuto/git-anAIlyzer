@@ -26,6 +26,7 @@ def profile_payload() -> GitHubProfileResponse:
         followers=12,
         public_repos=8,
         html_url="https://github.com/octocat",
+        top_topics=[{"name": "python", "count": 4}],
     )
 
 
@@ -53,6 +54,7 @@ def test_get_profile_returns_profile_data(
         "followers": 12,
         "public_repos": 8,
         "html_url": "https://github.com/octocat",
+        "top_topics": [{"name": "python", "count": 4}],
     }
     mock_fetch_user_profile.assert_called_once_with(GitHubProfileRequest(username="octocat"))
 

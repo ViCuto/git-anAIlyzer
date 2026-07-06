@@ -4,6 +4,7 @@ from backend.clients.github import (
     GitHubNotFoundError,
     GitHubProfileRequest,
     GitHubRateLimitError,
+    _build_github_headers,
     fetch_user_repos_analytics,
     fetch_user_language_stats,
     fetch_user_profile,
@@ -99,7 +100,23 @@ async def test_fetch_user_profile_returns_basic_profile_data(
     mock_response.status_code = 200
     mock_response.json.return_value = github_profile_payload
     mock_response.raise_for_status.return_value = None
-    mock_get = mocker.patch("backend.clients.github.httpx.AsyncClient.get", return_value=mock_response)
+    repos_response = mocker.Mock()
+    repos_response.status_code = 200
+    repos_response.json.return_value = [
+        {"topics": ["python", "api", "python"]},
+        {"topics": ["docker", "api"]},
+    ]
+    repos_response.raise_for_status.return_value = None
+
+    empty_repos_page_response = mocker.Mock()
+    empty_repos_page_response.status_code = 200
+    empty_repos_page_response.json.return_value = []
+    empty_repos_page_response.raise_for_status.return_value = None
+
+    mock_get = mocker.patch(
+        "backend.clients.github.httpx.AsyncClient.get",
+        side_effect=[mock_response, repos_response, empty_repos_page_response],
+    )
     request = GitHubProfileRequest(username=" octocat ")
 
     # Act
@@ -113,7 +130,12 @@ async def test_fetch_user_profile_returns_basic_profile_data(
     assert profile.followers == 12
     assert profile.public_repos == 8
     assert profile.html_url == "https://github.com/octocat"
-    mock_get.assert_called_once()
+    assert [topic.model_dump() for topic in profile.top_topics] == [
+        {"name": "api", "count": 2},
+        {"name": "python", "count": 2},
+        {"name": "docker", "count": 1},
+    ]
+    assert mock_get.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -154,6 +176,71 @@ async def test_fetch_user_profile_translates_403_to_rate_limit_error(mocker: pyt
     # Act / Assert
     with pytest.raises(GitHubRateLimitError, match="GitHub API rate limit exceeded"):
         await fetch_user_profile(request)
+
+
+@pytest.mark.asyncio
+async def test_fetch_user_profile_limits_top_topics_to_top_10(
+    mocker: pytest.MockFixture,
+    github_profile_payload: dict[str, object],
+) -> None:
+    # Arrange
+    profile_response = mocker.Mock()
+    profile_response.status_code = 200
+    profile_response.json.return_value = github_profile_payload
+    profile_response.raise_for_status.return_value = None
+
+    topics_payload = [
+        {
+            "topics": [
+                "kafka",
+                "redis",
+                "python",
+                "docker",
+                "api",
+                "fastapi",
+                "charts",
+                "monitoring",
+                "testing",
+                "ci",
+                "azure",
+                "analytics",
+                "devops",
+            ]
+        }
+    ]
+
+    repos_response = mocker.Mock()
+    repos_response.status_code = 200
+    repos_response.json.return_value = topics_payload
+    repos_response.raise_for_status.return_value = None
+
+    empty_repos_page_response = mocker.Mock()
+    empty_repos_page_response.status_code = 200
+    empty_repos_page_response.json.return_value = []
+    empty_repos_page_response.raise_for_status.return_value = None
+
+    mocker.patch(
+        "backend.clients.github.httpx.AsyncClient.get",
+        side_effect=[profile_response, repos_response, empty_repos_page_response],
+    )
+
+    # Act
+    profile = await fetch_user_profile(GitHubProfileRequest(username="octocat"))
+
+    # Assert
+    assert len(profile.top_topics) == 10
+    assert [topic.name for topic in profile.top_topics] == [
+        "analytics",
+        "api",
+        "azure",
+        "charts",
+        "ci",
+        "devops",
+        "docker",
+        "fastapi",
+        "kafka",
+        "monitoring",
+    ]
 
 
 @pytest.mark.asyncio
@@ -232,6 +319,35 @@ async def test_fetch_user_repos_analytics_returns_aggregated_metrics(
     assert analytics.top_repos[-1].pushed_at == "2026-05-10T09:00:00Z"
     assert analytics.top_repos[-1].topics == ["legacy"]
     assert mock_get.call_count == 2
+
+
+def test_build_github_headers_with_token_adds_authorization(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Arrange
+    monkeypatch.setenv("GITHUB_TOKEN", "secret-token")
+
+    # Act
+    headers = _build_github_headers()
+
+    # Assert
+    assert headers == {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "Git-AnAIlyzer",
+        "Authorization": "token secret-token",
+    }
+
+
+def test_build_github_headers_without_token_omits_authorization(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Arrange
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+
+    # Act
+    headers = _build_github_headers("Custom-Agent")
+
+    # Assert
+    assert headers == {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "Custom-Agent",
+    }
 
 
 @pytest.mark.asyncio
