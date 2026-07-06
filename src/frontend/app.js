@@ -18,17 +18,121 @@ const languageChartCanvas = document.getElementById('language-chart');
 const topRepositoriesList = document.getElementById('top-repositories-list');
 const showMoreRepositoriesButton = document.getElementById('show-more-repositories');
 const showLessRepositoriesButton = document.getElementById('show-less-repositories');
+const repositoriesSortBySelect = document.getElementById('repositories-sort-by');
+const repositoriesSortOrderSelect = document.getElementById('repositories-sort-order');
 
 let languageChart = null;
 let allRepositories = [];
 let visibleRepositoriesCount = 5;
 let statusHideTimeoutId = null;
 let languageColorMap = {};
+const viewState = {
+  activeFilter: null,
+  activeSortBy: 'stars',
+  activeSortOrder: 'desc',
+};
 
 const REPOSITORIES_INITIAL_VISIBLE_COUNT = 5;
 const REPOSITORIES_SHOW_MORE_STEP = 10;
 const FALLBACK_LANGUAGE_COLOR = '#94a3b8';
 const LANGUAGE_CHART_COLORS = ['#22d3ee', '#38bdf8', '#60a5fa', '#818cf8', '#a78bfa', '#f472b6', '#fb7185', '#f59e0b'];
+
+function withOpacity(hexColor, opacity) {
+  const safeOpacity = Math.max(0, Math.min(1, Number(opacity)));
+  const hex = String(hexColor || '').replace('#', '');
+
+  if (hex.length !== 6) {
+    return FALLBACK_LANGUAGE_COLOR;
+  }
+
+  const red = Number.parseInt(hex.slice(0, 2), 16);
+  const green = Number.parseInt(hex.slice(2, 4), 16);
+  const blue = Number.parseInt(hex.slice(4, 6), 16);
+
+  if ([red, green, blue].some((value) => Number.isNaN(value))) {
+    return FALLBACK_LANGUAGE_COLOR;
+  }
+
+  return `rgba(${red}, ${green}, ${blue}, ${safeOpacity})`;
+}
+
+function getRepositoryUpdatedTimestamp(repository) {
+  if (!repository) {
+    return 0;
+  }
+
+  const timestamp = repository.pushed_at || repository.updated_at;
+  const parsed = new Date(timestamp);
+  return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+}
+
+function getProcessedRepositories() {
+  const filteredRepositories =
+    viewState.activeFilter == null
+      ? allRepositories.slice()
+      : allRepositories.filter((repository) => repository?.language === viewState.activeFilter);
+
+  const sortedRepositories = filteredRepositories.slice().sort((left, right) => {
+    const leftStars = Number(left?.stargazers_count ?? 0);
+    const rightStars = Number(right?.stargazers_count ?? 0);
+    const leftUpdated = getRepositoryUpdatedTimestamp(left);
+    const rightUpdated = getRepositoryUpdatedTimestamp(right);
+    const leftName = String(left?.name ?? '').toLocaleLowerCase();
+    const rightName = String(right?.name ?? '').toLocaleLowerCase();
+    const direction = viewState.activeSortOrder === 'asc' ? 1 : -1;
+
+    let comparison = 0;
+
+    switch (viewState.activeSortBy) {
+      case 'updated':
+        comparison = leftUpdated - rightUpdated;
+        break;
+      case 'name':
+        comparison = leftName.localeCompare(rightName);
+        break;
+      case 'stars':
+      default:
+        comparison = leftStars - rightStars;
+        break;
+    }
+
+    if (comparison !== 0) {
+      return comparison * direction;
+    }
+
+    return rightStars - leftStars;
+  });
+
+  return sortedRepositories;
+}
+
+function syncSortSelection() {
+  if (repositoriesSortBySelect) {
+    repositoriesSortBySelect.value = viewState.activeSortBy;
+  }
+
+  if (repositoriesSortOrderSelect) {
+    repositoriesSortOrderSelect.value = viewState.activeSortOrder;
+  }
+}
+
+function applyFilterAndSort(resetVisibleCount = false) {
+  if (resetVisibleCount) {
+    visibleRepositoriesCount = REPOSITORIES_INITIAL_VISIBLE_COUNT;
+  }
+
+  renderTopRepositories();
+
+  if (languageChart) {
+    languageChart.update();
+  }
+}
+
+function setActiveLanguageFilter(language) {
+  const normalizedLanguage = typeof language === 'string' ? language : null;
+  viewState.activeFilter = viewState.activeFilter === normalizedLanguage ? null : normalizedLanguage;
+  applyFilterAndSort(true);
+}
 
 function formatRelativeUpdatedTime(timestamp) {
   if (!timestamp) {
@@ -126,6 +230,10 @@ function showLoading() {
   profileAvatar.alt = 'Loading avatar';
   allRepositories = [];
   visibleRepositoriesCount = REPOSITORIES_INITIAL_VISIBLE_COUNT;
+  viewState.activeFilter = null;
+  viewState.activeSortBy = 'stars';
+  viewState.activeSortOrder = 'desc';
+  syncSortSelection();
   languageColorMap = renderLanguageChart({});
   renderTopRepositories([], languageColorMap);
 }
@@ -157,6 +265,10 @@ function renderError(message) {
   languageColorMap = renderLanguageChart({});
   allRepositories = [];
   visibleRepositoriesCount = REPOSITORIES_INITIAL_VISIBLE_COUNT;
+  viewState.activeFilter = null;
+  viewState.activeSortBy = 'stars';
+  viewState.activeSortOrder = 'desc';
+  syncSortSelection();
   renderTopRepositories([], languageColorMap);
   showStatus(message, 'error');
 }
@@ -175,7 +287,18 @@ function renderLanguageChart(languageCounts) {
     languageChart = null;
   }
 
-  const languageEntries = Object.entries(languageCounts ?? {}).filter(([, count]) => Number(count) > 0);
+  const languageEntries = Object.entries(languageCounts ?? {}).filter(([language, count]) => {
+    if (typeof language !== 'string') {
+      return false;
+    }
+
+    const normalizedLanguage = language.trim();
+    if (!normalizedLanguage || normalizedLanguage === 'undefined') {
+      return false;
+    }
+
+    return Number(count) > 0;
+  });
 
   if (!languageEntries.length) {
     const context = languageChartCanvas.getContext('2d');
@@ -193,6 +316,10 @@ function renderLanguageChart(languageCounts) {
     return map;
   }, {});
 
+  if (viewState.activeFilter && !labels.includes(viewState.activeFilter)) {
+    viewState.activeFilter = null;
+  }
+
   languageChart = new Chart(languageChartCanvas, {
     type: 'doughnut',
     data: {
@@ -200,7 +327,14 @@ function renderLanguageChart(languageCounts) {
       datasets: [
         {
           data: values,
-          backgroundColor: labels.map((language) => nextLanguageColorMap[language] || FALLBACK_LANGUAGE_COLOR),
+          backgroundColor(context) {
+            const language = labels[context.dataIndex];
+            const baseColor = nextLanguageColorMap[language] || FALLBACK_LANGUAGE_COLOR;
+            if (!viewState.activeFilter || viewState.activeFilter === language) {
+              return baseColor;
+            }
+            return withOpacity(baseColor, 0.25);
+          },
           borderColor: '#0f172a',
           borderWidth: 2,
           hoverOffset: 8,
@@ -214,11 +348,39 @@ function renderLanguageChart(languageCounts) {
       plugins: {
         legend: {
           position: 'bottom',
+          onClick(_event, legendItem) {
+            if (legendItem?.text) {
+              setActiveLanguageFilter(legendItem.text);
+            }
+          },
           labels: {
-            color: '#cbd5e1',
+            color: '#f8fafc',
             padding: 16,
             usePointStyle: true,
             pointStyle: 'circle',
+            generateLabels(chart) {
+              return labels.map((labelText, index) => {
+                const baseColor = nextLanguageColorMap[labelText] || FALLBACK_LANGUAGE_COLOR;
+                const isActive = !viewState.activeFilter || viewState.activeFilter === labelText;
+                const legendTextColor = isActive ? '#f8fafc' : 'rgba(226, 232, 240, 0.55)';
+                return {
+                  text: labelText,
+                  datasetIndex: 0,
+                  index,
+                  hidden: !chart.getDataVisibility(index),
+                  lineCap: 'round',
+                  lineDash: [],
+                  lineDashOffset: 0,
+                  lineJoin: 'round',
+                  lineWidth: 0,
+                  fillStyle: isActive ? baseColor : withOpacity(baseColor, 0.25),
+                  strokeStyle: isActive ? baseColor : withOpacity(baseColor, 0.25),
+                  color: legendTextColor,
+                  fontColor: legendTextColor,
+                  pointStyle: 'circle',
+                };
+              });
+            },
           },
         },
         tooltip: {
@@ -230,6 +392,17 @@ function renderLanguageChart(languageCounts) {
             },
           },
         },
+      },
+      onClick(_event, elements) {
+        if (!elements?.length || !labels.length) {
+          return;
+        }
+
+        const selectedIndex = elements[0]?.index;
+        const selectedLanguage = labels[selectedIndex];
+        if (selectedLanguage) {
+          setActiveLanguageFilter(selectedLanguage);
+        }
       },
     },
   });
@@ -251,7 +424,8 @@ function renderTopRepositories(repositories, nextLanguageColorMap = languageColo
 
   topRepositoriesList.innerHTML = '';
 
-  const items = allRepositories.slice(0, visibleRepositoriesCount);
+  const processedRepositories = getProcessedRepositories();
+  const items = processedRepositories.slice(0, visibleRepositoriesCount);
 
   if (!items.length) {
     const emptyItem = document.createElement('li');
@@ -330,7 +504,7 @@ function renderTopRepositories(repositories, nextLanguageColorMap = languageColo
   });
 
   if (showMoreRepositoriesButton) {
-    const shouldShowButton = visibleRepositoriesCount < allRepositories.length;
+    const shouldShowButton = visibleRepositoriesCount < processedRepositories.length;
     showMoreRepositoriesButton.classList.toggle('hidden', !shouldShowButton);
   }
 
@@ -469,9 +643,10 @@ form.addEventListener('submit', async (event) => {
 
 if (showMoreRepositoriesButton) {
   showMoreRepositoriesButton.addEventListener('click', () => {
+    const processedRepositories = getProcessedRepositories();
     visibleRepositoriesCount = Math.min(
       visibleRepositoriesCount + REPOSITORIES_SHOW_MORE_STEP,
-      allRepositories.length,
+      processedRepositories.length,
     );
     renderTopRepositories();
   });
@@ -481,5 +656,19 @@ if (showLessRepositoriesButton) {
   showLessRepositoriesButton.addEventListener('click', () => {
     visibleRepositoriesCount = REPOSITORIES_INITIAL_VISIBLE_COUNT;
     renderTopRepositories();
+  });
+}
+
+if (repositoriesSortBySelect) {
+  repositoriesSortBySelect.addEventListener('change', (event) => {
+    viewState.activeSortBy = event.target.value || 'stars';
+    applyFilterAndSort(true);
+  });
+}
+
+if (repositoriesSortOrderSelect) {
+  repositoriesSortOrderSelect.addEventListener('change', (event) => {
+    viewState.activeSortOrder = event.target.value || 'desc';
+    applyFilterAndSort(true);
   });
 }
