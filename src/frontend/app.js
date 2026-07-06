@@ -471,7 +471,7 @@ function renderTopRepositories(repositories, nextLanguageColorMap = languageColo
     header.append(titleBlock, stars);
 
     const meta = document.createElement('div');
-    meta.className = 'mt-3 flex flex-wrap gap-2 text-xs text-slate-400';
+    meta.className = 'mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400';
 
     if (repository.language) {
       const language = document.createElement('span');
@@ -491,7 +491,7 @@ function renderTopRepositories(repositories, nextLanguageColorMap = languageColo
     const updatedLabel = formatRelativeUpdatedTime(repository.pushed_at || repository.updated_at);
     if (updatedLabel) {
       const updated = document.createElement('span');
-      updated.className = 'text-xs text-gray-400';
+      updated.className = 'inline-flex items-center text-xs text-gray-400';
       updated.textContent = updatedLabel;
       meta.append(updated);
     }
@@ -507,12 +507,37 @@ function renderTopRepositories(repositories, nextLanguageColorMap = languageColo
       : [];
 
     const topicsContainer = document.createElement('div');
-    topicsContainer.className = 'mt-3 mb-3 flex flex-wrap gap-2';
+    topicsContainer.className = 'mt-3 mb-3 flex items-center flex-wrap gap-1';
+
+    if (topics.length > 0) {
+      const topicsIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      topicsIcon.setAttribute('viewBox', '0 0 24 24');
+      topicsIcon.setAttribute('fill', 'none');
+      topicsIcon.setAttribute('stroke', 'currentColor');
+      topicsIcon.setAttribute('stroke-width', '1.7');
+      topicsIcon.setAttribute('class', 'h-3.5 w-3.5 text-gray-500');
+      topicsIcon.setAttribute('aria-hidden', 'true');
+
+      const iconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      iconPath.setAttribute('stroke-linecap', 'round');
+      iconPath.setAttribute('stroke-linejoin', 'round');
+      iconPath.setAttribute('d', 'm20.59 13.41-7.18 7.18a2 2 0 0 1-2.83 0l-7.18-7.18V4h9.41l7.18 7.18a2 2 0 0 1 0 2.83Z');
+
+      const iconCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      iconCircle.setAttribute('cx', '8.5');
+      iconCircle.setAttribute('cy', '8.5');
+      iconCircle.setAttribute('r', '1.5');
+      iconCircle.setAttribute('fill', 'currentColor');
+      iconCircle.setAttribute('stroke', 'none');
+
+      topicsIcon.append(iconPath, iconCircle);
+      topicsContainer.appendChild(topicsIcon);
+    }
 
     topics.forEach((topic) => {
       const badge = document.createElement('span');
       badge.className =
-        'inline-flex items-center rounded-full bg-slate-800/70 px-2 py-1 text-[11px] font-medium text-gray-400';
+        'inline-flex items-center rounded-full border border-gray-700/40 bg-transparent px-2 py-1 text-[11px] font-medium text-gray-400';
       badge.textContent = topic;
       topicsContainer.appendChild(badge);
     });
