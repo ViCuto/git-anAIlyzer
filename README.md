@@ -45,6 +45,12 @@ This project was built **entirely using AI-driven development**.
 - **python-testing-patterns** (`.github/skills/python-testing-patterns.md`): Enforced pytest conventions and strict mocking of GitHub HTTP requests for deterministic tests.
 - **vanilla-frontend-patterns-and-design** (`.github/skills/vanilla-frontend-patterns-and-design.md`): Guided frontend structure, Chart.js lifecycle management, and UI/UX quality principles.
 
+### Repository-Wide Agent Instructions
+
+- **AGENTS.md** (`AGENTS.md`): Defines project-level operating constraints for all agents and contributors, including product scope, architecture boundaries, and testing rules.
+- **Instruction precedence**: `AGENTS.md` acts as the shared baseline for all coding sessions, while sub-agents and skills provide specialized guidance for backend/frontend implementation details.
+- **Key enforced rule**: All automated tests must mock GitHub API HTTP calls (no real `api.github.com` requests) to ensure deterministic and CI-safe execution.
+
 ## Features
 
 - Search any public GitHub username.
