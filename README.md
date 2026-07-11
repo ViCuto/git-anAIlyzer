@@ -9,7 +9,7 @@ Real-time GitHub developer analytics dashboard that turns any public username in
 
 ## Description
 
-Git-AnAIlyzer is a lightweight full-stack web app that fetches public data from the GitHub REST API and presents it in a modern, interactive dashboard. The backend (FastAPI) handles profile retrieval, repository aggregation, language distribution, pull request counting, and domain-specific error mapping. The frontend (Vanilla JavaScript + Tailwind + Chart.js) renders profile cards, language charts, technology topics, and sortable repository lists with fast client-side interactions. The project is intentionally stateless and simple to run locally.
+GitHub-Profile-AnAIyzer is a lightweight full-stack web app that fetches public data from the GitHub REST API and presents it in a modern, interactive dashboard. The backend (FastAPI) handles profile retrieval, repository aggregation, language distribution, pull request counting, and domain-specific error mapping. The frontend (Vanilla JavaScript + Tailwind + Chart.js) renders profile cards, language charts, technology topics, and sortable repository lists with fast client-side interactions. The project is intentionally stateless and simple to run locally.
 
 <img src="screenshot.png" alt="Git-AnAIlyzer Dashboard" width="760" />
 
@@ -36,8 +36,8 @@ This project was built **entirely using AI-driven development**.
 
 #### Custom Sub-Agents
 
-- **Git-AnAIlyzer Backend** (`.github/agents/backend.agent.md`): Specialized in FastAPI routes, GitHub API client logic, backend aggregation services, and backend testing workflow.
-- **Git-AnAIlyzer Frontend** (`.github/agents/frontend.agent.md`): Specialized in Vanilla JS UI architecture, DOM rendering, Chart.js behavior, interactive filtering/sorting, and visual validation.
+- **GitHub-Profile-AnAIyzer Backend** (`.github/agents/backend.agent.md`): Specialized in FastAPI routes, GitHub API client logic, backend aggregation services, and backend testing workflow.
+- **GitHub-Profile-AnAIyzer Frontend** (`.github/agents/frontend.agent.md`): Specialized in Vanilla JS UI architecture, DOM rendering, Chart.js behavior, interactive filtering/sorting, and visual validation.
 
 #### Custom Skills
 
@@ -78,7 +78,7 @@ This project was built **entirely using AI-driven development**.
 1. Clone the repository:
 ```bash
 git clone <repo-url>
-cd git-anAIlyzer
+cd GitHub-Profile-AnAIyzer
 ```
 
 2. Create and activate a virtual environment:
@@ -141,7 +141,7 @@ Common error behavior:
 The project follows a clean modular split between backend API logic and frontend presentation logic.
 
 ```text
-git-anAIlyzer/
+GitHub-Profile-AnAIyzer/
 ├── src/
 │   ├── backend/
 │   │   ├── app.py                  # FastAPI app bootstrap and router registration
